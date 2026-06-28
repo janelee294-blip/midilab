@@ -1,0 +1,1 @@
+ALTER TABLE task_assignments DROP COLUMN IF EXISTS month;
