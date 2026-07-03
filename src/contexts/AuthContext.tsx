@@ -121,7 +121,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, full_name, role, status, phone, tickets, points, expiry_date, payment_amount, unit_price, memo, discord_webhook, created_at, updated_at')
+      .select('id, full_name, role, status, phone, tickets, points, inventory,expiry_date, payment_amount, unit_price, memo, discord_webhook, created_at, updated_at')
       .eq('id', profile.id)
       .maybeSingle();
 

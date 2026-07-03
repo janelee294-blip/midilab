@@ -11,12 +11,6 @@ export function PointsControl() {
   const [adjustLoading, setAdjustLoading] = useState<string | null>(null);
   const [resetModal, setResetModal] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
-  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
-
-  const showToast = (msg: string, ok: boolean) => {
-    setToast({ msg, ok });
-    setTimeout(() => setToast(null), 3000);
-  };
 
   const loadStudents = useCallback(async () => {
     // Show spinner only on initial load; subsequent refetches update data in-place
@@ -34,36 +28,29 @@ export function PointsControl() {
 
   useEffect(() => { loadStudents(); }, [loadStudents]);
 
-  async function handleAdjust(student: Profile, delta: number) {
-    setAdjustLoading(student.id);
-    await supabase.rpc('adjust_user_points', {
-      p_user_id: student.id,
-      p_delta: delta,
-      p_reason: `관리자 ${delta > 0 ? '지급' : '차감'} (${delta > 0 ? '+' : ''}${delta}점)`,
-    });
-    await loadStudents();
-    showToast(`${student.full_name} 포인트 ${delta > 0 ? '+' : ''}${delta}점 ${delta > 0 ? '지급' : '차감'}`, true);
-    setAdjustLoading(null);
-  }
+  // 변경 후
+async function handleAdjust(student: Profile, delta: number) {
+  setAdjustLoading(student.id);
+  await supabase.rpc('adjust_user_points', {
+    p_user_id: student.id,
+    p_delta: delta,
+    p_reason: `관리자 ${delta > 0 ? '지급' : '차감'} (${delta > 0 ? '+' : ''}${delta}점)`,
+  });
+  await loadStudents();
+  setAdjustLoading(null);
+}
 
-  async function handleMonthlyReset() {
-    setResetLoading(true);
-    await supabase.rpc('monthly_points_reset');
-    showToast('월간 포인트 초기화 및 백업이 완료되었습니다.', true);
-    setResetModal(false);
-    setResetLoading(false);
-    loadStudents();
-  }
+  // 변경 후
+async function handleMonthlyReset() {
+  setResetLoading(true);
+  await supabase.rpc('monthly_points_reset');
+  setResetModal(false);
+  setResetLoading(false);
+  loadStudents();
+}
 
   return (
     <div className="space-y-5">
-      {toast && (
-        <div className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-sm font-medium
-          ${toast.ok ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'}`}>
-          {toast.ok ? <Star size={16} /> : <AlertCircle size={16} />}
-          {toast.msg}
-        </div>
-      )}
 
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">

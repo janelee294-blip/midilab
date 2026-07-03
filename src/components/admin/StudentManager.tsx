@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Users, CheckCircle, XCircle, Trash2, Clock,
-  RefreshCw, AlertCircle, Search, FileText, Save, Pencil, ClipboardList, Bell, Gamepad2,
+  RefreshCw, AlertCircle, Search, FileText, Save, Pencil, ClipboardList, Bell, Gamepad2, Package, TrendingUp
 } from 'lucide-react';
 import { supabase, type Profile, type LessonApplication, type Product } from '../../lib/supabase';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { Modal } from '../ui/Modal';
+import { StudentInventoryManager } from './StudentInventoryManager';
 
 function parseGender(experience: string): string {
   const m = experience?.match(/^\[성별:\s*([^\]]+)\]/);
@@ -195,7 +196,29 @@ function StudentEditForm({ student, onSave, saving }: StudentEditFormProps) {
         />
         <p className="text-xs text-slate-400 mt-1">학생 알림 전송에 사용됩니다. 비워두면 알림이 발송되지 않습니다.</p>
       </div>
-      <div className="flex justify-end pt-1">
+
+      <div className="border-t border-slate-100 pt-4 pb-1">
+        <label className="text-xs font-medium text-slate-600 block mb-2">작업실 관리</label>
+        <div className="flex gap-2 w-full">
+          
+          {/* 좌측: 부모의 억지 CSS 오버라이드를 삭제하고 순수 컨테이너만 제공 */}
+          <div className="flex-1 flex">
+            <StudentInventoryManager studentId={student.id} />
+          </div>
+          
+          {/* 우측: 아이콘 추가 및 좌측과 완벽히 동일한 CSS 클래스 적용 */}
+          <button
+            type="button"
+            className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-medium hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm"
+          >
+            <TrendingUp size={14} className="text-slate-500" />
+            작업실 레벨 관리
+          </button>
+          
+        </div>
+      </div>
+
+      <div className="flex justify-end pt-3">
         <Button variant="primary" loading={saving} onClick={handleSubmit}>
           <Save size={13} />
           저장

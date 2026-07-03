@@ -41,6 +41,13 @@ export const supabase = new Proxy({} as typeof _current, {
 export type UserRole = 'admin' | 'student';
 export type UserStatus = 'pending' | 'active' | 'suspended';
 
+export interface RoomLayoutItem {
+  pos_x: number;
+  pos_y: number;
+  pos_z: number;
+  rot_y: number;
+}
+
 export interface Profile {
   id: string;
   full_name: string;
@@ -50,6 +57,8 @@ export interface Profile {
   password?: string;
   tickets: number;
   points: number;
+  inventory: Record<string, number>;
+  room_layout: Record<string, RoomLayoutItem>;
   expiry_date: string | null;
   payment_amount: number;
   unit_price: number;
