@@ -150,6 +150,97 @@ const deepParse = (data: any): Record<string, number> => {
 };
 
 // ─── Main export ───────────────────────────────────────────────────────────
+type PlainObject = Record<string, unknown>;
+type PreviewRoomId = 'room_lv1' | 'room_lv2' | 'room_lv3' | 'room_lv4' | 'room_lv5';
+
+interface RoomLayoutPreview {
+  schema_version: 2;
+  source: 'flat' | 'v2';
+  rooms: Record<PreviewRoomId, PlainObject>;
+}
+
+type RoomLayoutPreviewResult =
+  | { ok: true; preview: RoomLayoutPreview }
+  | { ok: false; error: string };
+
+export function isPlainObject(value: unknown): value is PlainObject {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+export function getLayoutEntryCount(layout: unknown): number {
+  return isPlainObject(layout) ? Object.keys(layout).length : 0;
+}
+
+export function normalizeRoomLayoutForPreview(raw: unknown): RoomLayoutPreviewResult {
+  let parsed = raw;
+
+  for (let i = 0; i < 4 && typeof parsed === 'string'; i++) {
+    try {
+      parsed = JSON.parse(parsed);
+    } catch (error) {
+      return {
+        ok: false,
+        error: error instanceof Error ? error.message : 'room_layout JSON parsing failed',
+      };
+    }
+  }
+
+  if (!isPlainObject(parsed)) {
+    return { ok: false, error: 'room_layout is not a plain object' };
+  }
+
+  if (parsed.schema_version === 2) {
+    if (!isPlainObject(parsed.rooms)) {
+      return { ok: false, error: 'v2 room_layout does not contain a valid rooms object' };
+    }
+
+    const rooms = parsed.rooms;
+    const roomIds: PreviewRoomId[] = [
+      'room_lv1',
+      'room_lv2',
+      'room_lv3',
+      'room_lv4',
+      'room_lv5',
+    ];
+
+    for (const roomId of roomIds) {
+      if (rooms[roomId] !== undefined && !isPlainObject(rooms[roomId])) {
+        return { ok: false, error: `${roomId} is not a plain object` };
+      }
+    }
+
+    return {
+      ok: true,
+      preview: {
+        schema_version: 2,
+        source: 'v2',
+        rooms: {
+          room_lv1: (rooms.room_lv1 as PlainObject | undefined) || {},
+          room_lv2: (rooms.room_lv2 as PlainObject | undefined) || {},
+          room_lv3: (rooms.room_lv3 as PlainObject | undefined) || {},
+          room_lv4: (rooms.room_lv4 as PlainObject | undefined) || {},
+          room_lv5: (rooms.room_lv5 as PlainObject | undefined) || {},
+        },
+      },
+    };
+  }
+
+  return {
+    ok: true,
+    preview: {
+      schema_version: 2,
+      source: 'flat',
+      rooms: {
+        room_lv1: parsed,
+        room_lv2: {},
+        room_lv3: {},
+        room_lv4: {},
+        room_lv5: {},
+      },
+    },
+  };
+}
+
 export function MyStudio({ profile, isActive = true }: { profile: Profile, isActive?: boolean }) {
   const [unlockedRooms, setUnlockedRooms] = useState<string[]>(
     profile.unlocked_rooms?.length ? profile.unlocked_rooms : ['room_lv1']
@@ -404,24 +495,62 @@ useEffect(() => {
             }
           }
           break;
-        case 'SAVE_STUDIO_CONFIRM':
+        case 'SAVE_STUDIO_CONFIRM': {
           if (isVisiting) break;
 
           if (event.data.inventory && event.data.room_layout) {
+            let parsedRoomLayout: unknown;
+            try {
+              parsedRoomLayout = typeof event.data.room_layout === 'string'
+                ? JSON.parse(event.data.room_layout)
+                : event.data.room_layout;
+            } catch (parseError) {
+              console.warn('[MyStudio] SAVE_STUDIO_CONFIRM room_layout parsing failed. DB update skipped.', parseError);
+              break;
+            }
+
+            const parsedInventory = deepParse(event.data.inventory);
+            const previewResult = normalizeRoomLayoutForPreview(parsedRoomLayout);
+            const roomLayoutPayloadType = Array.isArray(event.data.room_layout)
+              ? 'array'
+              : typeof event.data.room_layout;
+
+            console.log('[MyStudio] SAVE_STUDIO_CONFIRM validation', {
+              roomLayoutPayloadType,
+              layoutEntryCount: getLayoutEntryCount(parsedRoomLayout),
+              inventoryKeyCount: Object.keys(parsedInventory).length,
+              previewFormat: previewResult.ok ? previewResult.preview.source : 'invalid',
+            });
+
+            if (!previewResult.ok) {
+              console.warn('[MyStudio] room_layout preview validation failed.', previewResult.error);
+            }
+
             setIsSaving(true);
             try {
               const { error } = await supabase
                 .from('profiles')
                 .update({
-                  inventory: deepParse(event.data.inventory),
-                  room_layout: typeof event.data.room_layout === 'string' ? JSON.parse(event.data.room_layout) : event.data.room_layout
+                  inventory: parsedInventory,
+                  room_layout: parsedRoomLayout
                 })
                 .eq('id', profile.id);
-            } catch (err) {} finally {
+
+              if (error) {
+                console.warn('[MyStudio] SAVE_STUDIO_CONFIRM Supabase update failed.', error);
+              } else {
+                console.log('[MyStudio] SAVE_STUDIO_CONFIRM Supabase update succeeded.', {
+                  success: true,
+                });
+              }
+            } catch (updateError) {
+              console.warn('[MyStudio] SAVE_STUDIO_CONFIRM Supabase update threw an error.', updateError);
+            } finally {
               setIsSaving(false);
             }
           }
           break;
+        }
       }
     };
     
