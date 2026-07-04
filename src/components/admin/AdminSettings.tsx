@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { Settings, Save, CheckCircle, Music, Sun, Cloud, CloudRain, Clock, Palette, Plus, Trash2, GripVertical } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Settings, Save, CheckCircle, Music, Sun, Cloud, CloudRain, Clock, Palette, Plus, Trash2, GripVertical, Database, RefreshCw } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Button } from '../ui/Button';
 import { PasswordChange } from '../shared/PasswordChange';
-import type { EnvMode, EnvTime, EnvWeather, EnvTheme, StudioEnv } from '../student/MyStudio';
+import type { EnvTime, EnvWeather, EnvTheme, StudioEnv } from '../student/MyStudio';
 
 // ─── Studio env section ───────────────────────────────────────────────────
 const TIME_OPTS:    { v: EnvTime;    label: string }[] = [
@@ -24,6 +24,24 @@ const THEME_OPTS:   { v: EnvTheme;   label: string }[] = [
 const DEFAULT_ENV: StudioEnv = { mode:'auto', time:'night', weather:'sunny', theme:'default' };
 
 interface Playlist { id:string; title:string; url:string; season_tag:string; sort_order:number; is_active:boolean }
+
+interface AdminDataStatus {
+  database_size_bytes: number | string;
+  database_size_pretty: string;
+  student_count: number | string;
+  reservation_count: number | string;
+  time_slot_count: number | string;
+  notification_count: number | string;
+  old_notification_count: number | string;
+  studio_visit_count: number | string;
+  checked_at: string;
+}
+
+function formatCount(value: number | string | undefined): string {
+  const text = String(value ?? 0);
+  const numeric = Number(text);
+  return Number.isSafeInteger(numeric) ? numeric.toLocaleString('ko-KR') : text;
+}
 
 function StudioSettings() {
   const [env,       setEnv]       = useState<StudioEnv>(DEFAULT_ENV);
@@ -212,6 +230,108 @@ function StudioSettings() {
   );
 }
 
+function DataStatusCard() {
+  const [status, setStatus] = useState<AdminDataStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const loadDataStatus = useCallback(async () => {
+    setLoading(true);
+    setError('');
+
+    try {
+      const { data, error: rpcError } = await supabase.rpc('get_admin_data_status');
+      const row = (Array.isArray(data) ? data[0] : data) as AdminDataStatus | null;
+
+      if (rpcError || !row) {
+        setError('데이터 상태를 불러오지 못했습니다.');
+        return;
+      }
+
+      setStatus(row);
+    } catch (loadError) {
+      console.warn('데이터 상태 조회 실패:', loadError);
+      setError('데이터 상태를 불러오지 못했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadDataStatus();
+  }, [loadDataStatus]);
+
+  const metrics = status ? [
+    { label: '학생 수', value: formatCount(status.student_count) },
+    { label: '예약 기록', value: formatCount(status.reservation_count) },
+    { label: '예약 슬롯', value: formatCount(status.time_slot_count) },
+    { label: '알림 기록', value: formatCount(status.notification_count) },
+    { label: '90일 지난 알림', value: formatCount(status.old_notification_count) },
+    { label: '작업실 방문 기록', value: formatCount(status.studio_visit_count) },
+  ] : [];
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200 p-6">
+      <div className="flex items-start justify-between gap-4 mb-5">
+        <div>
+          <h3 className="font-semibold text-slate-900 flex items-center gap-2">
+            <Database size={16} className="text-slate-500" />
+            데이터 상태
+          </h3>
+          <p className="text-xs text-slate-400 mt-1">
+            Free 플랜 운영을 위한 데이터 사용량과 주요 기록 개수를 확인합니다.
+          </p>
+        </div>
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          loading={loading}
+          disabled={loading}
+          onClick={loadDataStatus}
+        >
+          <RefreshCw size={13} />
+          새로고침
+        </Button>
+      </div>
+
+      {error && (
+        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
+      {status ? (
+        <>
+          <div className="mb-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <p className="text-xs font-medium text-slate-500">DB 전체 용량</p>
+            <p className="mt-1 text-xl font-bold text-slate-900">
+              {String(status.database_size_pretty)}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {metrics.map(metric => (
+              <div key={metric.label} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-3">
+                <p className="text-xs text-slate-500">{metric.label}</p>
+                <p className="mt-1 text-base font-semibold text-slate-900">{metric.value}</p>
+              </div>
+            ))}
+          </div>
+
+          <p className="mt-4 text-xs text-slate-400">
+            마지막 확인 시간: {new Date(status.checked_at).toLocaleString('ko-KR')}
+          </p>
+        </>
+      ) : !error ? (
+        <div className="py-8 text-center text-sm text-slate-400">
+          데이터 상태를 불러오는 중...
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function AdminSettings() {
   const [webhook, setWebhook] = useState('');
   const [loading, setLoading] = useState(true);
@@ -282,6 +402,8 @@ export function AdminSettings() {
       </div>
 
       <StudioSettings />
+
+      <DataStatusCard />
 
       <PasswordChange />
     </div>
