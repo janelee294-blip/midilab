@@ -69,6 +69,12 @@ export function TimeSlotEditor() {
   const [studentsLoading, setStudentsLoading] = useState(false);
   const [proxyBookingLoading, setProxyBookingLoading] = useState(false);
   const [proxyBookingError, setProxyBookingError] = useState('');
+  const [studentSearch, setStudentSearch] = useState('');
+
+  const normalizedStudentSearch = studentSearch.trim().toLocaleLowerCase();
+  const filteredBookingStudents = bookingStudents.filter(student =>
+    student.full_name.toLocaleLowerCase().includes(normalizedStudentSearch)
+  );
 
   const loadMonthSlots = useCallback(async () => {
     const startDate = `${year}-${String(month + 1).padStart(2, '0')}-01`;
@@ -257,6 +263,7 @@ export function TimeSlotEditor() {
     setSelectedSlot(slot);
     setSelectedStudent(null);
     setProxyBookingError('');
+    setStudentSearch('');
     setStudentsLoading(true);
 
     const { data, error } = await supabase
@@ -281,6 +288,7 @@ export function TimeSlotEditor() {
     setSelectedStudent(null);
     setBookingStudents([]);
     setProxyBookingError('');
+    setStudentSearch('');
   }
 
   async function handleProxyBooking() {
@@ -289,7 +297,9 @@ export function TimeSlotEditor() {
     setProxyBookingLoading(true);
     setProxyBookingError('');
 
-    const { error } = await supabase.rpc('admin_book_slot_for_student', {
+    const bookedSlot = selectedSlot;
+    const bookedStudent = selectedStudent;
+    const { data, error } = await supabase.rpc('admin_book_slot_for_student', {
       p_slot_id: selectedSlot.id,
       p_student_id: selectedStudent.id,
     });
@@ -301,9 +311,23 @@ export function TimeSlotEditor() {
       return;
     }
 
+    const result = Array.isArray(data) ? data[0] : data;
+    const remainingTickets = result?.remaining_tickets ?? Math.max(0, bookedStudent.tickets - 1);
+
     closeProxyBookingModal();
     setProxyBookingLoading(false);
     await Promise.all([loadSlots(), loadMonthSlots()]);
+
+    try {
+      await sendStudentWebhook(bookedStudent.id, 'booking_created', {
+        date: bookedSlot.slot_date,
+        time: `${bookedSlot.start_time.slice(0, 5)}–${bookedSlot.end_time.slice(0, 5)}`,
+        tickets: remainingTickets,
+      });
+    } catch (webhookError) {
+      console.warn('학생 예약 완료 webhook 발송 실패:', webhookError);
+    }
+
     window.alert('대리 예약이 완료되었습니다.');
   }
 
@@ -707,6 +731,16 @@ export function TimeSlotEditor() {
 
             <div>
               <p className="mb-2 text-sm font-medium text-slate-700">학생 선택</p>
+              <input
+                type="search"
+                value={studentSearch}
+                onChange={(event) => {
+                  setStudentSearch(event.target.value);
+                  setSelectedStudent(null);
+                }}
+                placeholder="학생 이름 검색"
+                className="mb-3 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200"
+              />
               {studentsLoading ? (
                 <div className="flex items-center justify-center py-8 text-sm text-slate-400">
                   <RefreshCw size={15} className="mr-2 animate-spin" />
@@ -716,9 +750,13 @@ export function TimeSlotEditor() {
                 <p className="py-8 text-center text-sm text-slate-400">
                   예약 가능한 활성 학생이 없습니다.
                 </p>
+              ) : filteredBookingStudents.length === 0 ? (
+                <p className="py-8 text-center text-sm text-slate-400">
+                  검색 결과가 없습니다
+                </p>
               ) : (
                 <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
-                  {bookingStudents.map((student) => {
+                  {filteredBookingStudents.map((student) => {
                     const hasTickets = student.tickets > 0;
                     const isSelected = selectedStudent?.id === student.id;
 
