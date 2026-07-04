@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { CalendarClock, Plus, Trash2, RefreshCw, ChevronLeft, ChevronRight, LayoutTemplate, RotateCcw, ChevronDown, ChevronUp, XCircle, Copy, ClipboardPaste } from 'lucide-react';
 import { supabase, type TimeSlot, type WeeklyTemplate } from '../../lib/supabase';
 import { sendStudentWebhook } from '../../lib/discord';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
+import { Modal } from '../ui/Modal';
 
 function localDateStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -18,6 +19,13 @@ function getFirstDayOfMonth(year: number, month: number) {
 }
 
 const DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'];
+
+interface ProxyBookingStudent {
+  id: string;
+  full_name: string;
+  tickets: number;
+  expiry_date: string | null;
+}
 
 export function TimeSlotEditor() {
   const today = new Date();
@@ -55,6 +63,12 @@ export function TimeSlotEditor() {
   const [copiedDow, setCopiedDow] = useState<number | null>(null);
   const [editStart, setEditStart] = useState('');
   const [editEnd, setEditEnd] = useState('');
+  const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
+  const [bookingStudents, setBookingStudents] = useState<ProxyBookingStudent[]>([]);
+  const [selectedStudent, setSelectedStudent] = useState<ProxyBookingStudent | null>(null);
+  const [studentsLoading, setStudentsLoading] = useState(false);
+  const [proxyBookingLoading, setProxyBookingLoading] = useState(false);
+  const [proxyBookingError, setProxyBookingError] = useState('');
 
   const loadMonthSlots = useCallback(async () => {
     const startDate = `${year}-${String(month + 1).padStart(2, '0')}-01`;
@@ -235,6 +249,62 @@ export function TimeSlotEditor() {
     await supabase.from('time_slots').delete().eq('id', slotId);
     await loadSlots();
     await loadMonthSlots();
+  }
+
+  async function openProxyBookingModal(slot: TimeSlot) {
+    if (!slot.is_available || slot.booked_by) return;
+
+    setSelectedSlot(slot);
+    setSelectedStudent(null);
+    setProxyBookingError('');
+    setStudentsLoading(true);
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, full_name, tickets, expiry_date')
+      .eq('role', 'student')
+      .eq('status', 'active')
+      .order('full_name', { ascending: true });
+
+    if (error) {
+      setBookingStudents([]);
+      setProxyBookingError(error.message);
+    } else {
+      setBookingStudents((data || []) as ProxyBookingStudent[]);
+    }
+
+    setStudentsLoading(false);
+  }
+
+  function closeProxyBookingModal() {
+    setSelectedSlot(null);
+    setSelectedStudent(null);
+    setBookingStudents([]);
+    setProxyBookingError('');
+  }
+
+  async function handleProxyBooking() {
+    if (!selectedSlot || !selectedStudent) return;
+
+    setProxyBookingLoading(true);
+    setProxyBookingError('');
+
+    const { error } = await supabase.rpc('admin_book_slot_for_student', {
+      p_slot_id: selectedSlot.id,
+      p_student_id: selectedStudent.id,
+    });
+
+    if (error) {
+      setProxyBookingError(error.message);
+      await Promise.all([loadSlots(), loadMonthSlots()]);
+      setProxyBookingLoading(false);
+      return;
+    }
+
+    closeProxyBookingModal();
+    setProxyBookingLoading(false);
+    await Promise.all([loadSlots(), loadMonthSlots()]);
+    window.alert('대리 예약이 완료되었습니다.');
   }
 
   async function handleCancelBooking(slot: TimeSlot) {
@@ -553,48 +623,154 @@ export function TimeSlotEditor() {
             <p className="text-slate-400 text-sm text-center py-4">등록된 슬롯이 없습니다.</p>
           ) : (
             <div className="space-y-2">
-              {slots.map((slot) => (
-                <div key={slot.id} className="flex items-center justify-between p-3 border border-slate-200 rounded-xl">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span className="text-sm font-medium text-slate-900 shrink-0">
-                      {slot.start_time.slice(0,5)} – {slot.end_time.slice(0,5)}
-                    </span>
-                    <Badge variant={slot.is_available ? 'success' : 'danger'}>
-                      {slot.is_available ? '예약 가능' : '예약됨'}
-                    </Badge>
-                    {!slot.is_available && slotBookers[slot.id] && (
-                      <span className="text-xs text-slate-500 truncate">({slotBookers[slot.id]})</span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    {!slot.is_available && slot.booked_by && (
+              {slots.map((slot) => {
+                const canProxyBook = slot.is_available && !slot.booked_by;
+
+                return (
+                  <div
+                    key={slot.id}
+                    onClick={() => {
+                      if (canProxyBook) openProxyBookingModal(slot);
+                    }}
+                    className={`flex items-center justify-between p-3 border border-slate-200 rounded-xl transition-colors
+                      ${canProxyBook ? 'cursor-pointer hover:bg-slate-50' : ''}`}
+                    title={canProxyBook ? '클릭하여 학생 대리 예약' : undefined}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="text-sm font-medium text-slate-900 shrink-0">
+                        {slot.start_time.slice(0,5)} – {slot.end_time.slice(0,5)}
+                      </span>
+                      <Badge variant={slot.is_available ? 'success' : 'danger'}>
+                        {slot.is_available ? '예약 가능' : '예약됨'}
+                      </Badge>
+                      {!slot.is_available && slotBookers[slot.id] && (
+                        <span className="text-xs text-slate-500 truncate">({slotBookers[slot.id]})</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {!slot.is_available && slot.booked_by && (
+                        <button
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleCancelBooking(slot);
+                          }}
+                          disabled={cancelLoading === slot.id}
+                          className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="예약 취소 및 티켓 반환"
+                        >
+                          {cancelLoading === slot.id
+                            ? <RefreshCw size={12} className="animate-spin" />
+                            : <XCircle size={12} />}
+                          예약 취소
+                        </button>
+                      )}
                       <button
-                        onClick={() => handleCancelBooking(slot)}
-                        disabled={cancelLoading === slot.id}
-                        className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        title="예약 취소 및 티켓 반환"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleDelete(slot.id);
+                        }}
+                        disabled={!slot.is_available}
+                        className="p-1.5 hover:bg-red-50 rounded-lg transition-colors text-red-400 disabled:opacity-30 disabled:cursor-not-allowed"
+                        title={slot.is_available ? '삭제' : '예약된 슬롯은 삭제 불가'}
                       >
-                        {cancelLoading === slot.id
-                          ? <RefreshCw size={12} className="animate-spin" />
-                          : <XCircle size={12} />}
-                        예약 취소
+                        <Trash2 size={15} />
                       </button>
-                    )}
-                    <button
-                      onClick={() => handleDelete(slot.id)}
-                      disabled={!slot.is_available}
-                      className="p-1.5 hover:bg-red-50 rounded-lg transition-colors text-red-400 disabled:opacity-30 disabled:cursor-not-allowed"
-                      title={slot.is_available ? '삭제' : '예약된 슬롯은 삭제 불가'}
-                    >
-                      <Trash2 size={15} />
-                    </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
       )}
+
+      <Modal
+        open={!!selectedSlot}
+        onClose={closeProxyBookingModal}
+        title="관리자 대리 예약"
+        size="md"
+      >
+        {selectedSlot && (
+          <div className="space-y-4">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <p className="text-xs text-slate-500">선택한 예약 시간</p>
+              <p className="mt-1 text-sm font-semibold text-slate-900">
+                {selectedSlot.slot_date} {selectedSlot.start_time.slice(0, 5)} – {selectedSlot.end_time.slice(0, 5)}
+              </p>
+            </div>
+
+            {proxyBookingError && (
+              <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+                {proxyBookingError}
+              </p>
+            )}
+
+            <div>
+              <p className="mb-2 text-sm font-medium text-slate-700">학생 선택</p>
+              {studentsLoading ? (
+                <div className="flex items-center justify-center py-8 text-sm text-slate-400">
+                  <RefreshCw size={15} className="mr-2 animate-spin" />
+                  학생 목록을 불러오는 중...
+                </div>
+              ) : bookingStudents.length === 0 ? (
+                <p className="py-8 text-center text-sm text-slate-400">
+                  예약 가능한 활성 학생이 없습니다.
+                </p>
+              ) : (
+                <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+                  {bookingStudents.map((student) => {
+                    const hasTickets = student.tickets > 0;
+                    const isSelected = selectedStudent?.id === student.id;
+
+                    return (
+                      <button
+                        key={student.id}
+                        type="button"
+                        disabled={!hasTickets}
+                        onClick={() => setSelectedStudent(student)}
+                        className={`w-full rounded-xl border px-4 py-3 text-left transition-colors
+                          ${isSelected
+                            ? 'border-slate-700 bg-slate-100'
+                            : 'border-slate-200 hover:bg-slate-50'}
+                          ${hasTickets ? 'cursor-pointer' : 'cursor-not-allowed opacity-45'}`}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-sm font-semibold text-slate-900">
+                            {student.full_name}
+                          </span>
+                          <span className={`text-xs font-medium ${hasTickets ? 'text-emerald-600' : 'text-red-500'}`}>
+                            티켓 {student.tickets}개
+                          </span>
+                        </div>
+                        <p className="mt-1 text-xs text-slate-500">
+                          수강 만료일: {student.expiry_date ? student.expiry_date.slice(0, 10) : '미설정'}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
+              <Button
+                variant="secondary"
+                onClick={closeProxyBookingModal}
+                disabled={proxyBookingLoading}
+              >
+                닫기
+              </Button>
+              <Button
+                loading={proxyBookingLoading}
+                disabled={!selectedStudent}
+                onClick={handleProxyBooking}
+              >
+                예약 확정
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
