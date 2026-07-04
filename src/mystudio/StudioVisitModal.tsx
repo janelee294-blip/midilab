@@ -2,7 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase'; // 🚨 상대 경로가 맞는지 확인 필요 (보통 '../../lib/supabase' 일 수 있음)
 import { DoorOpen, Search, X, User } from 'lucide-react';
 
-export function StudioVisitModal({ onClose, onVisit }: { onClose: () => void, onVisit: (studentId: string) => void }) {
+export function StudioVisitModal({ onClose, onVisit, currentUserId }: {
+  onClose: () => void;
+  onVisit: (studentId: string) => void;
+  currentUserId?: string;
+}) {
   const [students, setStudents] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -10,25 +14,28 @@ export function StudioVisitModal({ onClose, onVisit }: { onClose: () => void, on
   useEffect(() => {
     async function fetchStudents() {
       setIsLoading(true);
-      // profiles 테이블에서 학생 역할이며, 스튜디오 이름이 존재하는 유저만 추출
+      // profiles 테이블에서 학생 역할인 유저를 추출
       const { data, error } = await supabase
         .from('profiles')
         .select('id, full_name, studio_name')
         .eq('role', 'student')
-        .not('studio_name', 'is', null)
         .order('full_name', { ascending: true });
       
       if (!error && data) {
-        setStudents(data);
+        setStudents(data.filter(student => student.id !== currentUserId));
       }
       setIsLoading(false);
     }
     fetchStudents();
-  }, []);
+  }, [currentUserId]);
 
-  const filteredStudents = students.filter(s => 
-    s.full_name?.includes(searchTerm) || s.studio_name?.includes(searchTerm)
-  );
+  const getStudioDisplayName = (student: any) =>
+    student.studio_name?.trim() || `${student.full_name}의 작업실`;
+
+  const filteredStudents = students.filter(student => {
+    const studioDisplayName = getStudioDisplayName(student);
+    return student.full_name?.includes(searchTerm) || studioDisplayName.includes(searchTerm);
+  });
 
   return (
     <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 pointer-events-auto">
@@ -82,7 +89,7 @@ export function StudioVisitModal({ onClose, onVisit }: { onClose: () => void, on
                   </div>
                   <div>
                     <p className="font-bold text-white/90 text-sm group-hover:text-white transition-colors">
-                      {student.studio_name}
+                      {getStudioDisplayName(student)}
                     </p>
                     <p className="text-xs text-white/40 mt-0.5">
                       {student.full_name} 학생

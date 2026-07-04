@@ -166,6 +166,7 @@ export function MyStudio({ profile, isActive = true }: { profile: Profile, isAct
   const [isGachaOpen, setIsGachaOpen] = useState(false); 
   const [isTradeOpen, setIsTradeOpen] = useState(false); 
   const [isHelpOpen, setIsHelpOpen] = useState(false); 
+  const [isStudioMenuOpen, setIsStudioMenuOpen] = useState(false);
 
   const [isEditMode, setIsEditMode] = useState(false);
   const [isInvOpen, setIsInvOpen] = useState(true); 
@@ -174,6 +175,8 @@ export function MyStudio({ profile, isActive = true }: { profile: Profile, isAct
   const [isSaving, setIsSaving] = useState(false);
   const [isGodotLoaded, setIsGodotLoaded] = useState(false);
   const [isVisiting, setIsVisiting] = useState(false);
+  const [todayVisitCount, setTodayVisitCount] = useState(0);
+  const [totalVisitCount, setTotalVisitCount] = useState(0);
 
   const [inventoryPage, setInventoryPage] = useState(0);
   const [trackConfig, setTrackConfig] = useState({ width: 0, visibleSlots: 8, itemW: 120, gapW: 16 });
@@ -263,10 +266,52 @@ useEffect(() => {
     }
   }, [profile.id, profile.full_name, sendToGodot]);
 
-  const handleReturnHome = useCallback(() => {
+  const loadVisitCounts = useCallback(async () => {
+    const now = new Date();
+    const today = [
+      now.getFullYear(),
+      String(now.getMonth() + 1).padStart(2, '0'),
+      String(now.getDate()).padStart(2, '0')
+    ].join('-');
+
+    try {
+      const [todayResult, totalResult] = await Promise.all([
+        supabase
+          .from('studio_visits')
+          .select('id', { count: 'exact', head: true })
+          .eq('studio_owner_id', profile.id)
+          .eq('visited_date', today),
+        supabase
+          .from('studio_visits')
+          .select('id', { count: 'exact', head: true })
+          .eq('studio_owner_id', profile.id)
+      ]);
+
+      if (todayResult.error) {
+        console.warn('오늘 방문자 수 조회 실패:', todayResult.error);
+      } else {
+        setTodayVisitCount(todayResult.count ?? 0);
+      }
+
+      if (totalResult.error) {
+        console.warn('누적 방문자 수 조회 실패:', totalResult.error);
+      } else {
+        setTotalVisitCount(totalResult.count ?? 0);
+      }
+    } catch (error) {
+      console.warn('방문자 수 조회 실패:', error);
+    }
+  }, [profile.id]);
+
+  useEffect(() => {
+    loadVisitCounts();
+  }, [loadVisitCounts]);
+
+  const handleReturnHome = useCallback(async () => {
     setIsVisiting(false);
-    loadStudioData();
-  }, [loadStudioData]);
+    await loadStudioData();
+    await loadVisitCounts();
+  }, [loadStudioData, loadVisitCounts]);
 
   const handleStudioMenuMessage = useCallback(async (type: string, data?: any) => {
     if (type === 'VISIT_STUDIO') {
@@ -282,6 +327,19 @@ useEffect(() => {
       if (error || !profileData) {
         console.error('방문 스튜디오 로드 실패:', error);
         return;
+      }
+
+      if (studentId !== profile.id) {
+        const { error: visitError } = await supabase
+          .from('studio_visits')
+          .insert({
+            studio_owner_id: studentId,
+            visitor_id: profile.id
+          });
+
+        if (visitError && visitError.code !== '23505') {
+          console.warn('스튜디오 방문 기록 저장 실패:', visitError);
+        }
       }
 
       let layoutData: any = {};
@@ -307,7 +365,7 @@ useEffect(() => {
     }
 
     sendToGodot(type, data);
-  }, [sendToGodot]);
+  }, [profile.id, sendToGodot]);
 
   const handleIframeLoad = () => {
     setIsGodotLoaded(true);
@@ -318,6 +376,8 @@ useEffect(() => {
 
   useEffect(() => {
     const handleGodotMessage = async (event: MessageEvent) => {
+      if (event.source !== godotFrameRef.current?.contentWindow) return;
+      if (event.origin !== window.location.origin) return;
       if (!event.data || !event.data.type) return;
       
       switch (event.data.type) {
@@ -337,6 +397,8 @@ useEffect(() => {
           }
           break;
         case 'SAVE_STUDIO_CONFIRM':
+          if (isVisiting) break;
+
           if (event.data.inventory && event.data.room_layout) {
             setIsSaving(true);
             try {
@@ -365,7 +427,7 @@ useEffect(() => {
       window.removeEventListener('message', handleGodotMessage);
       delete (window as any).onGodotReady;
     };
-  }, [profile.id, loadStudioData]);
+  }, [profile.id, loadStudioData, isVisiting]);
 
   useEffect(() => {
     if (isGodotLoaded) {
@@ -584,7 +646,7 @@ useEffect(() => {
         </div>
       )}
 
-      {!isVisiting && (
+      {!isVisiting && !isStudioMenuOpen && (
         <>
       {/* 🚨 좌측 하단 제어버튼 (모바일 위치 최적화 수치 조정) */}
 <div className={`absolute left-3 md:left-5 w-auto z-50 flex items-center gap-2 pointer-events-none transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]
@@ -626,7 +688,7 @@ useEffect(() => {
         </>
       )}
 
-      {!isVisiting && (
+      {!isVisiting && !isStudioMenuOpen && (
       <div className={`absolute left-3 md:left-5 z-40 pointer-events-auto overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] origin-bottom-left w-56 md:w-64
         ${showHud && isHelpOpen ? 'max-h-64 opacity-100 scale-100' : 'max-h-0 opacity-0 scale-95'}
         ${isEditMode && isInvOpen && showHud ? (isMobile ? 'bottom-16 translate-y-[-140px]' : 'bottom-16 translate-y-[-180px]') : 'bottom-14 md:bottom-16 translate-y-0'}`}>
@@ -682,7 +744,11 @@ useEffect(() => {
           
           {/* 1. 햄버거 메뉴 렌더링 (StudioMenu.tsx 전체가 이 한 줄로 치환됨) */}
           <div className="pointer-events-auto">
-            <StudioMenu sendToGodot={handleStudioMenuMessage} />
+            <StudioMenu
+              sendToGodot={handleStudioMenuMessage}
+              onOpenChange={setIsStudioMenuOpen}
+              currentUserId={profile.id}
+            />
           </div>
           
           
@@ -756,6 +822,12 @@ useEffect(() => {
                 <span className="text-[#f9c76d] font-bold text-xs md:text-sm leading-none drop-shadow-[0_0_5px_rgba(249,199,109,0.3)]">{profile.points.toLocaleString()}</span>
               </div>
             </div>
+
+            {!isVisiting && (
+              <p className="px-1 text-[8px] md:text-[9px] text-white/35 leading-none whitespace-nowrap">
+                오늘 {todayVisitCount}명 · 누적 {totalVisitCount}명 방문
+              </p>
+            )}
           </div>
 
           <div className="flex items-center justify-between px-1.5 md:px-2 py-1 md:py-1.5 bg-[#0b101e]/60 backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl pointer-events-auto">
@@ -813,7 +885,7 @@ useEffect(() => {
         )}
       </div>
 
-      {!isVisiting && (
+      {!isVisiting && !isStudioMenuOpen && (
         <>
       {/* ─── 🚨 완벽한 반응형 3D 게임 인벤토리 ─── */}
       <div className={`absolute left-0 w-full transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] z-40 bottom-0

@@ -413,11 +413,13 @@ function LoginModal({ onClose }: LoginModalProps) {
         <p className="text-slate-500 text-xs text-center mb-6">등록된 전화번호와 비밀번호를 입력해주세요</p>
 
         {error && (
-          <div className="mb-4 flex items-center gap-2 bg-red-500/10 border border-red-500/20 text-red-300 rounded-xl px-4 py-3 text-sm">
-            <AlertCircle size={14} />
-            {error}
-          </div>
-        )}
+  <div className="mb-4 flex items-center gap-2 bg-red-500/10 border border-red-500/20 text-red-300 rounded-xl px-4 py-3 overflow-hidden">
+    <AlertCircle size={14} className="shrink-0" />
+    <span className="text-[13px] whitespace-nowrap">
+      {error}
+    </span>
+  </div>
+)}
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
