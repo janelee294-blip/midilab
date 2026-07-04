@@ -59,6 +59,7 @@ export interface Profile {
   points: number;
   inventory: Record<string, number>;
   room_layout: Record<string, RoomLayoutItem>;
+  unlocked_rooms: string[];
   expiry_date: string | null;
   payment_amount: number;
   unit_price: number;

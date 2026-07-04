@@ -151,8 +151,12 @@ const deepParse = (data: any): Record<string, number> => {
 
 // ─── Main export ───────────────────────────────────────────────────────────
 export function MyStudio({ profile, isActive = true }: { profile: Profile, isActive?: boolean }) {
-  
-  const info = STUDIO_LEVELS[0]; 
+  const [unlockedRooms, setUnlockedRooms] = useState<string[]>(
+    profile.unlocked_rooms?.length ? profile.unlocked_rooms : ['room_lv1']
+  );
+  const displayRoomId = unlockedRooms[0] || 'room_lv1';
+  const displayRoomLevel = Number(displayRoomId.match(/^room_lv(\d+)$/)?.[1] || 1);
+  const info = STUDIO_LEVELS.find(level => level.level === displayRoomLevel) || STUDIO_LEVELS[0];
   const { refreshProfile } = useAuth(); 
 
   const env  = useStudioEnv();
@@ -246,7 +250,7 @@ useEffect(() => {
   const loadStudioData = useCallback(async () => {
     const { data, error } = await supabase
       .from('profiles')
-      .select('inventory, room_layout, studio_name')
+      .select('inventory, room_layout, studio_name, unlocked_rooms')
       .eq('id', profile.id)
       .single();
 
@@ -255,8 +259,12 @@ useEffect(() => {
     if (data) {
       const safeInv = deepParse(data.inventory);
       const safeLayout = typeof data.room_layout === 'string' ? JSON.parse(data.room_layout) : (data.room_layout || {});
+      const safeUnlockedRooms = Array.isArray(data.unlocked_rooms) && data.unlocked_rooms.length > 0
+        ? data.unlocked_rooms
+        : ['room_lv1'];
       
       setInventory(safeInv);
+      setUnlockedRooms(safeUnlockedRooms);
       setStudioName(data.studio_name || `${profile.full_name}의 스튜디오`);
       
       sendToGodot('INITIALIZE_STUDIO_DATA', { 
@@ -1133,7 +1141,7 @@ useEffect(() => {
       )}
       {isTradeOpen && (
         <div className="absolute inset-0 z-50 flex items-center justify-center p-4 pointer-events-auto" style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)' }}>
-          <StudioAuction profile={profile} onClose={() => setIsTradeOpen(false)} />
+          <StudioAuction onClose={() => setIsTradeOpen(false)} />
         </div>
       )} 
 
