@@ -3,10 +3,11 @@ import { Menu, X, Users, LayoutGrid } from 'lucide-react';
 import { StudioVisitModal } from './StudioVisitModal'; // 같은 폴더이므로 ./ 사용
 import { StudioSpaceModal } from './StudioSpaceModal.tsx'; // 같은 폴더이므로 ./ 사용
 
-export function StudioMenu({ sendToGodot, onOpenChange, currentUserId }: {
+export function StudioMenu({ sendToGodot, onOpenChange, currentUserId, unlockedRooms }: {
   sendToGodot: (type: string, data?: any) => void;
   onOpenChange?: (isOpen: boolean) => void;
   currentUserId?: string;
+  unlockedRooms: string[];
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [modalType, setModalType] = useState<'space' | 'visit' | null>(null);
@@ -72,11 +73,8 @@ export function StudioMenu({ sendToGodot, onOpenChange, currentUserId }: {
 
       {modalType === 'space' && (
         <StudioSpaceModal 
-          onClose={() => setModalType(null)} 
-          onSelectSpace={(layoutData: any) => {
-            sendToGodot('LOAD_LAYOUT', { room_layout: layoutData });
-            setModalType(null);
-          }} 
+          unlockedRooms={unlockedRooms}
+          onClose={() => setModalType(null)}
         />
       )}
     </>

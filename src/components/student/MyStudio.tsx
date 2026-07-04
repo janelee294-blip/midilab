@@ -756,6 +756,7 @@ useEffect(() => {
               sendToGodot={handleStudioMenuMessage}
               onOpenChange={setIsStudioMenuOpen}
               currentUserId={profile.id}
+              unlockedRooms={unlockedRooms}
             />
           </div>
           
