@@ -327,12 +327,10 @@ type DetailTarget =
   | { type: 'app'; data: LessonApplication }
   | { type: 'student'; data: Profile; app: LessonApplication | null };
 
-const STUDIO_ROOMS = [
-  { id: 'room_lv1', name: '기본 작업실', isDefault: true },
-  { id: 'room_lv2', name: '루키 스튜디오', isDefault: false },
-  { id: 'room_lv3', name: '그루브 스튜디오', isDefault: false },
-  { id: 'room_lv4', name: '프로듀서 룸', isDefault: false },
-  { id: 'room_lv5', name: '시그니처 스튜디오', isDefault: false },
+const ADMIN_ROOM_OPTIONS = [
+  { id: 'room_lv1', level: 'LV.1', name: '옥탑 작업실' },
+  { id: 'room_lv2', level: 'LV.2', name: '루키 스튜디오' },
+  { id: 'room_lv3', level: 'LV.3', name: '시그니처 스튜디오' },
 ] as const;
 
 export function StudentManager({ onAction }: { onAction?: () => void }) {
@@ -369,7 +367,7 @@ export function StudentManager({ onAction }: { onAction?: () => void }) {
     if (!hasLoadedRef.current) setLoading(true);
     const [appRes, stuRes, approvedRes, prodRes] = await Promise.all([
       supabase.from('lesson_applications').select('*').eq('status', 'waiting').order('created_at', { ascending: false }),
-      supabase.from('profiles').select('id, full_name, role, status, phone, tickets, points, unlocked_rooms, expiry_date, payment_amount, unit_price, memo, discord_webhook, created_at, updated_at').eq('role', 'student').order('created_at', { ascending: false }),
+      supabase.from('profiles').select('id, full_name, role, status, phone, tickets, points, unlocked_rooms, default_room_id, expiry_date, payment_amount, unit_price, memo, discord_webhook, created_at, updated_at').eq('role', 'student').order('created_at', { ascending: false }),
       supabase.from('lesson_applications').select('*').eq('status', 'approved'),
       supabase.from('products').select('*').order('sort_order').order('created_at'),
     ]);
@@ -492,7 +490,11 @@ export function StudentManager({ onAction }: { onAction?: () => void }) {
   }
 
   async function handleUnlockRoom(roomId: string) {
-    if (!studioLevelStudent || roomId === 'room_lv1') return;
+    if (
+      !studioLevelStudent
+      || roomId === 'room_lv1'
+      || !ADMIN_ROOM_OPTIONS.some(room => room.id === roomId)
+    ) return;
 
     const currentRooms = Array.isArray(studioLevelStudent.unlocked_rooms)
       ? studioLevelStudent.unlocked_rooms
@@ -527,6 +529,67 @@ export function StudentManager({ onAction }: { onAction?: () => void }) {
       return { ...current, data: updatedStudent };
     });
     showToast(`${updatedStudent.full_name} 학생의 ${roomId} 공간을 해금했습니다.`, true);
+  }
+
+  async function handleLockRoom(roomId: string) {
+    if (
+      !studioLevelStudent
+      || roomId === 'room_lv1'
+      || !ADMIN_ROOM_OPTIONS.some(room => room.id === roomId)
+    ) return;
+
+    const currentRooms = Array.isArray(studioLevelStudent.unlocked_rooms)
+      ? studioLevelStudent.unlocked_rooms
+      : ['room_lv1'];
+    if (!currentRooms.includes(roomId)) return;
+
+    const nextRooms = Array.from(new Set([
+      'room_lv1',
+      ...currentRooms.filter(currentRoomId => currentRoomId !== roomId),
+    ]));
+    const shouldResetDefaultRoom = studioLevelStudent.default_room_id === roomId;
+    const profileUpdates: {
+      unlocked_rooms: string[];
+      default_room_id?: string;
+    } = {
+      unlocked_rooms: nextRooms,
+    };
+
+    if (shouldResetDefaultRoom) {
+      profileUpdates.default_room_id = 'room_lv1';
+    }
+
+    setUnlockingRoomId(roomId);
+    setStudioLevelError('');
+
+    const { error } = await supabase
+      .from('profiles')
+      .update(profileUpdates)
+      .eq('id', studioLevelStudent.id);
+
+    setUnlockingRoomId(null);
+
+    if (error) {
+      setStudioLevelError('작업실 공간 해금을 취소하지 못했습니다. ' + error.message);
+      return;
+    }
+
+    const updatedStudent: Profile = {
+      ...studioLevelStudent,
+      unlocked_rooms: nextRooms,
+      ...(shouldResetDefaultRoom ? { default_room_id: 'room_lv1' } : {}),
+    };
+    setStudioLevelStudent(updatedStudent);
+    setStudents(current => current.map(student =>
+      student.id === updatedStudent.id ? updatedStudent : student
+    ));
+    setDetailModal(current => {
+      if (!current || current.type !== 'student' || current.data.id !== updatedStudent.id) {
+        return current;
+      }
+      return { ...current, data: updatedStudent };
+    });
+    showToast(`${updatedStudent.full_name} 학생의 ${roomId} 공간 해금을 취소했습니다.`, true);
   }
 
   const filteredStudents = students
@@ -824,10 +887,11 @@ export function StudentManager({ onAction }: { onAction?: () => void }) {
             )}
 
             <div className="space-y-2">
-              {STUDIO_ROOMS.map(room => {
-                const isUnlocked = room.isDefault
+              {ADMIN_ROOM_OPTIONS.map(room => {
+                const isDefault = room.id === 'room_lv1';
+                const isUnlocked = isDefault
                   || studioLevelStudent.unlocked_rooms?.includes(room.id);
-                const isUnlocking = unlockingRoomId === room.id;
+                const isUpdating = unlockingRoomId === room.id;
 
                 return (
                   <div
@@ -835,22 +899,23 @@ export function StudentManager({ onAction }: { onAction?: () => void }) {
                     className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-4 py-3"
                   >
                     <div className="min-w-0">
-                      <p className="text-xs font-medium text-slate-400">{room.id}</p>
+                      <p className="text-xs font-medium text-slate-400">{room.level}</p>
                       <p className="truncate text-sm font-semibold text-slate-900">{room.name}</p>
                     </div>
 
-                    {room.isDefault ? (
+                    {isDefault ? (
+                      <span className="shrink-0 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-500">
+                        기본 해금
+                      </span>
+                    ) : isUnlocked ? (
                       <button
                         type="button"
-                        disabled
-                        className="shrink-0 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-500"
+                        disabled={!!unlockingRoomId}
+                        onClick={() => handleLockRoom(room.id)}
+                        className="shrink-0 rounded-lg bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        기본 해금
+                        {isUpdating ? '처리 중...' : '해금 취소'}
                       </button>
-                    ) : isUnlocked ? (
-                      <span className="shrink-0 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-600">
-                        해금됨
-                      </span>
                     ) : (
                       <button
                         type="button"
@@ -858,7 +923,7 @@ export function StudentManager({ onAction }: { onAction?: () => void }) {
                         onClick={() => handleUnlockRoom(room.id)}
                         className="shrink-0 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        {isUnlocking ? '해금 중...' : '해금하기'}
+                        {isUpdating ? '처리 중...' : '해금'}
                       </button>
                     )}
                   </div>

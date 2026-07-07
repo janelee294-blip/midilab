@@ -32,13 +32,24 @@ export const STUDIO_ASSETS: StudioAsset[] = [
   { id: 'membership_card', name: '미디랩 멤버십 카드', category: 'etc', price: 0, description: '가챠에서 소모되는 포인트 할인 10%', icon: '💳', tag: '', obtain: ['gacha'], grade: 'passive' },
   { id: 'ghost', name: '도박꾼의 영혼', category: 'etc', price: 0, description: '가챠에서 나온 보상을 두배로 받거나 다 잃거나', icon: '👻', tag: '', obtain: ['gacha'], grade: 'passive' },
 
-  { id: 'piano001', name: '그랜드 피아노', category: 'instrument', price: 500, description: '스튜디오의 중심을 잡아주는 최고급 피아노', icon: '🎹', tag: 'BEST', obtain: ['shop', 'gacha'], grade: 'legendary' },
+  { id: 'trophy', name: '우승 트로피', category: 'etc', price: 0, description: '블라인드 배틀 우승 트로피', icon: '🏆', tag: '', obtain: ['event'], grade: 'special' },
+  { id: 'desk001', name: '프로듀서 책상', category: 'furniture', price: 0, description: '집중력을 높여주는 묵직한 작업용 책상', icon: '🪑', tag: '', obtain: ['event'], grade: 'rare' },
 
-  { id: 'drum001', name: '어쿠스틱 드럼', category: 'instrument', price: 300, description: '강력한 타격감의 어쿠스틱 드럼 세트', icon: '🥁', tag: 'HOT', obtain: ['shop'], grade: 'epic' },
 
-  { id: 'sofa001', name: '인테리어 소파', category: 'furniture', price: 200, description: '편안한 휴식을 제공하는 가죽 소파', icon: '🛋️', tag: 'NEW', obtain: ['shop', 'gacha'], grade: 'rare' },
-  { id: 'desk001', name: '프로듀서 책상', category: 'furniture', price: 150, description: '집중력을 높여주는 묵직한 작업용 책상', icon: '🪑', tag: '', obtain: ['shop'], grade: 'rare' },
 
-  { id: 'Guitar001', name: '어쿠스틱 기타', category: 'instrument', price: 100, description: '어디서든 연주하기 좋은 통기타', icon: '🎸', tag: '', obtain: ['shop'], grade: 'common' },
-  { id: 'Light001', name: '네온 조명', category: 'furniture', price: 80, description: '사이버펑크 감성의 벽걸이 조명', icon: '💡', tag: '', obtain: ['gacha'], grade: 'common' }
+  { id: 'figureaot001', name: '에렌 예거 피규어', category: 'furniture', price: 0, description: '진격의 거인 에렌 예거 피규어', icon: '🧍‍♂️', tag: '', obtain: ['gacha'], grade: 'legendary' },
+  { id: 'piano002', name: '마블 그랜드 피아노', category: 'instrument', price: 0, description: '스튜디오의 중심을 잡아주는 최고급 피아노', icon: '🎹', tag: '', obtain: ['gacha'], grade: 'legendary' },
+
+  { id: 'piano001', name: '그랜드 피아노', category: 'instrument', price: 25, description: '검정색 그랜드 피아노', icon: '🎹', tag: '', obtain: ['shop', 'gacha'], grade: 'epic' },
+  { id: 'drum001', name: '어쿠스틱 드럼', category: 'instrument', price: 15, description: '강력한 타격감의 어쿠스틱 드럼 세트', icon: '🥁', tag: '', obtain: ['shop', 'gacha'], grade: 'epic' },
+  { id: 'macbook001', name: '맥북', category: 'instrument', price: 0, description: '스튜디오 작업에 최적화된 맥북', icon: '💻', tag: '', obtain: ['gacha'], grade: 'epic' },
+  { id: 'aiapollo', name: 'UA Apollo Twin X', category: 'instrument', price: 0, description: '하이엔드 오디오 인터페이스', icon: '💻', tag: '', obtain: ['gacha'], grade: 'epic' },
+
+  { id: 'sofa001', name: '인테리어 소파', category: 'furniture', price: 10, description: '편안한 휴식을 제공하는 가죽 소파', icon: '🛋️', tag: '', obtain: ['shop', 'gacha'], grade: 'rare' },
+  { id: 'plant001', name: '인테리어 식물', category: 'furniture', price: 0, description: '방에 생기를 더해주는 식물', icon: '🌿', tag: '', obtain: ['gacha'], grade: 'rare' },
+
+  { id: 'stool001', name: '작은 의자', category: 'furniture', price: 2, description: '작은 일반 의자', icon: '🪑', tag: '', obtain: ['shop'], grade: 'common' },
+  { id: 'rug001', name: '하얀 카페트', category: 'furniture', price: 4, description: '바닥에 까는 심플한 카페트', icon: ' ', tag: '', obtain: ['shop'], grade: 'common' },
+  { id: 'lamp001', name: '스탠드 조명', category: 'furniture', price: 2, description: '스탠드 조명', icon: '💡', tag: '', obtain: ['shop'], grade: 'common' },
+  { id: 'pianochair001', name: '검정색 피아노 의자', category: 'furniture', price: 3, description: '검정색 피아노 의자', icon: '🪑', tag: '', obtain: ['shop'], grade: 'common' }
 ];

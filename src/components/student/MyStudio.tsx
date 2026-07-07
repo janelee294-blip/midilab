@@ -12,6 +12,7 @@ import { StudioAuction } from '../../mystudio/StudioAuction';
 import { SpecialCombineModal } from '../../mystudio/SpecialCombineModal';
 import { TicketUseModal } from '../../mystudio/TicketUseModal';
 import { StudioMenu } from '../../mystudio/StudioMenu';
+import { ACTIVE_ROOM_IDS } from '../../mystudio/StudioSpaceModal';
 
 // ─── Environment types ─────────────────────────────────────────────────────
 export type EnvTime    = 'morning' | 'afternoon' | 'evening' | 'night';
@@ -43,6 +44,12 @@ export const STUDIO_LEVELS = [
   { level: 4, name: '프로 스튜디오',      description: '영감이 넘치는 공간',          pointsRequired: 3500, nextPointsRequired: 7000 },
   { level: 5, name: '드림 스튜디오',      description: '당신만의 완벽한 성소',        pointsRequired: 7000, nextPointsRequired: null  },
 ];
+
+const ROOM_DISPLAY_INFO: Record<string, { level: number; name: string }> = {
+  room_lv1: { level: 1, name: '옥탑 작업실' },
+  room_lv2: { level: 2, name: '루키 스튜디오' },
+  room_lv3: { level: 3, name: '시그니처 스튜디오' },
+};
 
 function useStudioEnv(): StudioEnv {
   const [env, setEnv] = useState<StudioEnv>(DEFAULT_ENV);
@@ -151,7 +158,94 @@ const deepParse = (data: any): Record<string, number> => {
 
 // ─── Main export ───────────────────────────────────────────────────────────
 type PlainObject = Record<string, unknown>;
-type PreviewRoomId = 'room_lv1' | 'room_lv2' | 'room_lv3' | 'room_lv4' | 'room_lv5';
+const ROOM_IDS = ['room_lv1', 'room_lv2', 'room_lv3', 'room_lv4', 'room_lv5'] as const;
+type StudioRoomId = typeof ROOM_IDS[number];
+type FlatRoomLayout = PlainObject;
+
+function isActiveRoomId(roomId: unknown): roomId is typeof ACTIVE_ROOM_IDS[number] {
+  return typeof roomId === 'string'
+    && (ACTIVE_ROOM_IDS as readonly string[]).includes(roomId);
+}
+
+interface NormalizedRoomLayout {
+  schema_version: 2;
+  rooms: Record<StudioRoomId, FlatRoomLayout>;
+}
+
+function createEmptyNormalizedRoomLayout(): NormalizedRoomLayout {
+  return {
+    schema_version: 2,
+    rooms: {
+      room_lv1: {},
+      room_lv2: {},
+      room_lv3: {},
+      room_lv4: {},
+      room_lv5: {},
+    },
+  };
+}
+
+function parseRoomLayout(rawLayout: unknown): unknown {
+  let parsed = rawLayout;
+
+  for (let i = 0; i < 4 && typeof parsed === 'string'; i++) {
+    try {
+      parsed = JSON.parse(parsed);
+    } catch {
+      return null;
+    }
+  }
+
+  return parsed;
+}
+
+export function normalizeRoomLayout(rawLayout: unknown): NormalizedRoomLayout {
+  const parsed = parseRoomLayout(rawLayout);
+  const emptyLayout = createEmptyNormalizedRoomLayout();
+
+  if (!isPlainObject(parsed)) return emptyLayout;
+
+  if (parsed.schema_version === 2) {
+    if (!isPlainObject(parsed.rooms)) return emptyLayout;
+
+    for (const roomId of ROOM_IDS) {
+      const roomLayout = parsed.rooms[roomId];
+      emptyLayout.rooms[roomId] = isPlainObject(roomLayout) ? roomLayout : {};
+    }
+
+    return emptyLayout;
+  }
+
+  emptyLayout.rooms.room_lv1 = parsed;
+  return emptyLayout;
+}
+
+export function getFlatLayoutForRoom(
+  normalizedLayout: NormalizedRoomLayout,
+  roomId: string
+): FlatRoomLayout {
+  return ROOM_IDS.includes(roomId as StudioRoomId)
+    ? normalizedLayout.rooms[roomId as StudioRoomId]
+    : {};
+}
+
+export function setFlatLayoutForRoom(
+  normalizedLayout: NormalizedRoomLayout,
+  roomId: string,
+  flatLayout: unknown
+): NormalizedRoomLayout {
+  if (!ROOM_IDS.includes(roomId as StudioRoomId)) return normalizedLayout;
+
+  return {
+    schema_version: 2,
+    rooms: {
+      ...normalizedLayout.rooms,
+      [roomId]: isPlainObject(flatLayout) ? flatLayout : {},
+    },
+  };
+}
+
+type PreviewRoomId = StudioRoomId;
 
 interface RoomLayoutPreview {
   schema_version: 2;
@@ -195,15 +289,7 @@ export function normalizeRoomLayoutForPreview(raw: unknown): RoomLayoutPreviewRe
     }
 
     const rooms = parsed.rooms;
-    const roomIds: PreviewRoomId[] = [
-      'room_lv1',
-      'room_lv2',
-      'room_lv3',
-      'room_lv4',
-      'room_lv5',
-    ];
-
-    for (const roomId of roomIds) {
+    for (const roomId of ROOM_IDS) {
       if (rooms[roomId] !== undefined && !isPlainObject(rooms[roomId])) {
         return { ok: false, error: `${roomId} is not a plain object` };
       }
@@ -245,9 +331,12 @@ export function MyStudio({ profile, isActive = true }: { profile: Profile, isAct
   const [unlockedRooms, setUnlockedRooms] = useState<string[]>(
     profile.unlocked_rooms?.length ? profile.unlocked_rooms : ['room_lv1']
   );
-  const displayRoomId = unlockedRooms[0] || 'room_lv1';
-  const displayRoomLevel = Number(displayRoomId.match(/^room_lv(\d+)$/)?.[1] || 1);
-  const info = STUDIO_LEVELS.find(level => level.level === displayRoomLevel) || STUDIO_LEVELS[0];
+  const [currentRoomId, setCurrentRoomId] = useState('room_lv1');
+  const [defaultRoomId, setDefaultRoomId] = useState('room_lv1');
+  const [roomLayoutByRoom, setRoomLayoutByRoom] = useState<NormalizedRoomLayout>(
+    createEmptyNormalizedRoomLayout
+  );
+  const info = ROOM_DISPLAY_INFO[currentRoomId] || ROOM_DISPLAY_INFO.room_lv1;
   const { refreshProfile } = useAuth(); 
 
   const env  = useStudioEnv();
@@ -269,6 +358,7 @@ export function MyStudio({ profile, isActive = true }: { profile: Profile, isAct
   const [inventory, setInventory] = useState<{ [key: string]: number }>({});
   const [isSaving, setIsSaving] = useState(false);
   const [isGodotLoaded, setIsGodotLoaded] = useState(false);
+  const [initialRoomSyncDone, setInitialRoomSyncDone] = useState(false);
   const [isVisiting, setIsVisiting] = useState(false);
   const [todayVisitCount, setTodayVisitCount] = useState(0);
   const [totalVisitCount, setTotalVisitCount] = useState(0);
@@ -280,6 +370,7 @@ export function MyStudio({ profile, isActive = true }: { profile: Profile, isAct
 
   const godotFrameRef = useRef<HTMLIFrameElement>(null);
   const containerRef = useRef<HTMLDivElement>(null); 
+  const hasSentInitialRoomSwitch = useRef(false);
 
   const [isEditingName, setIsEditingName] = useState(false);
   const [studioName, setStudioName] = useState('');
@@ -338,10 +429,45 @@ useEffect(() => {
     }
   }, []);
 
-  const loadStudioData = useCallback(async () => {
+  const handleSelectRoom = useCallback((roomId: string) => {
+    if (!isActiveRoomId(roomId)) return;
+
+    if (isEditMode) {
+      window.alert('가구 수정 모드를 종료하고 저장한 뒤 이동해주세요.');
+      return;
+    }
+
+    setCurrentRoomId(roomId);
+    sendToGodot('SWITCH_ROOM', { room_id: roomId });
+    sendToGodot('LOAD_LAYOUT', {
+      room_layout: getFlatLayoutForRoom(roomLayoutByRoom, roomId),
+      is_readonly: false,
+    });
+  }, [isEditMode, roomLayoutByRoom, sendToGodot]);
+
+  const handleSetDefaultRoom = useCallback(async (roomId: string) => {
+    if (
+      !isActiveRoomId(roomId)
+      || (roomId !== 'room_lv1' && !unlockedRooms.includes(roomId))
+    ) return;
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ default_room_id: roomId })
+      .eq('id', profile.id);
+
+    if (error) {
+      console.error('대표방 지정 실패:', error);
+      return;
+    }
+
+    setDefaultRoomId(roomId);
+  }, [profile.id, unlockedRooms]);
+
+  const loadStudioData = useCallback(async (shouldSendInitialRoomSwitch = false) => {
     const { data, error } = await supabase
       .from('profiles')
-      .select('inventory, room_layout, studio_name, unlocked_rooms')
+      .select('inventory, room_layout, studio_name, unlocked_rooms, default_room_id')
       .eq('id', profile.id)
       .single();
 
@@ -349,19 +475,54 @@ useEffect(() => {
 
     if (data) {
       const safeInv = deepParse(data.inventory);
-      const safeLayout = typeof data.room_layout === 'string' ? JSON.parse(data.room_layout) : (data.room_layout || {});
+      const normalizedLayout = normalizeRoomLayout(data.room_layout);
       const safeUnlockedRooms = Array.isArray(data.unlocked_rooms) && data.unlocked_rooms.length > 0
         ? data.unlocked_rooms
         : ['room_lv1'];
+      const safeDefaultRoomId =
+        isActiveRoomId(data.default_room_id)
+        && (data.default_room_id === 'room_lv1' || safeUnlockedRooms.includes(data.default_room_id))
+          ? data.default_room_id
+          : 'room_lv1';
+
+      if (data.default_room_id !== safeDefaultRoomId) {
+        supabase
+          .from('profiles')
+          .update({ default_room_id: safeDefaultRoomId })
+          .eq('id', profile.id)
+          .then(({ error: correctionError }) => {
+            if (correctionError) {
+              console.error('대표방 기본값 보정 실패:', correctionError);
+            }
+          });
+      }
       
       setInventory(safeInv);
       setUnlockedRooms(safeUnlockedRooms);
+      setRoomLayoutByRoom(normalizedLayout);
+      setCurrentRoomId(safeDefaultRoomId);
+      setDefaultRoomId(safeDefaultRoomId);
       setStudioName(data.studio_name || `${profile.full_name}의 스튜디오`);
       
       sendToGodot('INITIALIZE_STUDIO_DATA', { 
         inventory: JSON.stringify(safeInv), 
-        room_layout: JSON.stringify(safeLayout) 
+        room_layout: JSON.stringify(getFlatLayoutForRoom(normalizedLayout, safeDefaultRoomId))
       });
+
+      if (
+        shouldSendInitialRoomSwitch
+        && safeDefaultRoomId !== 'room_lv1'
+        && !hasSentInitialRoomSwitch.current
+      ) {
+        hasSentInitialRoomSwitch.current = true;
+        sendToGodot('SWITCH_ROOM', { room_id: safeDefaultRoomId });
+      }
+
+      if (shouldSendInitialRoomSwitch) {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => setInitialRoomSyncDone(true));
+        });
+      }
     }
   }, [profile.id, profile.full_name, sendToGodot]);
 
@@ -407,10 +568,28 @@ useEffect(() => {
   }, [loadVisitCounts]);
 
   const handleReturnHome = useCallback(async () => {
+    const targetRoomId = isActiveRoomId(defaultRoomId)
+      && (defaultRoomId === 'room_lv1' || unlockedRooms.includes(defaultRoomId))
+      ? defaultRoomId
+      : 'room_lv1';
+
     setIsVisiting(false);
+    setCurrentRoomId(targetRoomId);
+    sendToGodot('SWITCH_ROOM', { room_id: targetRoomId });
+    sendToGodot('LOAD_LAYOUT', {
+      room_layout: getFlatLayoutForRoom(roomLayoutByRoom, targetRoomId),
+      is_readonly: false,
+    });
     await loadStudioData();
     await loadVisitCounts();
-  }, [loadStudioData, loadVisitCounts]);
+  }, [
+    defaultRoomId,
+    loadStudioData,
+    loadVisitCounts,
+    roomLayoutByRoom,
+    sendToGodot,
+    unlockedRooms,
+  ]);
 
   const handleStudioMenuMessage = useCallback(async (type: string, data?: any) => {
     if (type === 'VISIT_STUDIO') {
@@ -419,7 +598,7 @@ useEffect(() => {
 
       const { data: profileData, error } = await supabase
         .from('profiles')
-        .select('room_layout')
+        .select('room_layout, default_room_id, unlocked_rooms')
         .eq('id', studentId)
         .single();
 
@@ -441,22 +620,26 @@ useEffect(() => {
         }
       }
 
-      let layoutData: any = {};
-      try {
-        layoutData = typeof profileData.room_layout === 'string'
-          ? JSON.parse(profileData.room_layout)
-          : (profileData.room_layout || {});
-      } catch (err) {
-        console.error('방문 스튜디오 레이아웃 파싱 실패:', err);
-        layoutData = {};
-      }
+      const targetLayoutByRoom = normalizeRoomLayout(profileData.room_layout);
+
+      const targetRoomId =
+        isActiveRoomId(profileData.default_room_id)
+        && Array.isArray(profileData.unlocked_rooms)
+        && (
+          profileData.default_room_id === 'room_lv1'
+          || profileData.unlocked_rooms.includes(profileData.default_room_id)
+        )
+          ? profileData.default_room_id
+          : 'room_lv1';
 
       setIsEditMode(false);
       setIsTrashMode(false);
       setIsVisiting(true);
+      setCurrentRoomId(targetRoomId);
 
+      sendToGodot('SWITCH_ROOM', { room_id: targetRoomId });
       sendToGodot('LOAD_LAYOUT', {
-        room_layout: layoutData,
+        room_layout: getFlatLayoutForRoom(targetLayoutByRoom, targetRoomId),
         is_readonly: true
       });
 
@@ -482,7 +665,7 @@ useEffect(() => {
       switch (event.data.type) {
         case 'GODOT_READY':
           setIsGodotLoaded(true);
-          loadStudioData();
+          loadStudioData(true);
           break;
         case 'OPEN_SHOP': setIsShopOpen(true); break;
         case 'OPEN_GACHA': setIsGachaOpen(true); break;
@@ -509,8 +692,18 @@ useEffect(() => {
               break;
             }
 
+            if (!isPlainObject(parsedRoomLayout)) {
+              console.warn('[MyStudio] SAVE_STUDIO_CONFIRM room_layout is not a flat object. DB update skipped.');
+              break;
+            }
+
             const parsedInventory = deepParse(event.data.inventory);
             const previewResult = normalizeRoomLayoutForPreview(parsedRoomLayout);
+            const updatedNormalizedLayout = setFlatLayoutForRoom(
+              roomLayoutByRoom,
+              currentRoomId,
+              parsedRoomLayout
+            );
             const roomLayoutPayloadType = Array.isArray(event.data.room_layout)
               ? 'array'
               : typeof event.data.room_layout;
@@ -532,15 +725,17 @@ useEffect(() => {
                 .from('profiles')
                 .update({
                   inventory: parsedInventory,
-                  room_layout: parsedRoomLayout
+                  room_layout: updatedNormalizedLayout
                 })
                 .eq('id', profile.id);
 
               if (error) {
                 console.warn('[MyStudio] SAVE_STUDIO_CONFIRM Supabase update failed.', error);
               } else {
+                setRoomLayoutByRoom(updatedNormalizedLayout);
                 console.log('[MyStudio] SAVE_STUDIO_CONFIRM Supabase update succeeded.', {
                   success: true,
+                  roomId: currentRoomId,
                 });
               }
             } catch (updateError) {
@@ -557,14 +752,14 @@ useEffect(() => {
     window.addEventListener('message', handleGodotMessage);
     (window as any).onGodotReady = () => {
       setIsGodotLoaded(true);
-      loadStudioData();
+      loadStudioData(true);
     };
 
     return () => {
       window.removeEventListener('message', handleGodotMessage);
       delete (window as any).onGodotReady;
     };
-  }, [profile.id, loadStudioData, isVisiting]);
+  }, [currentRoomId, isVisiting, loadStudioData, profile.id, roomLayoutByRoom]);
 
   useEffect(() => {
     if (isGodotLoaded) {
@@ -605,21 +800,10 @@ useEffect(() => {
   // 🚨 정석적 구조가 적용된 삭제 트리거 (딕셔너리 구조에 맞춘 배치 수량 연산)
   const handleDiscard = async (itemId: string, quantity: number) => {
     // 1. 프로필의 룸 레이아웃 데이터(딕셔너리)에서 배치된 개수 추출
-    let placedCount = 0;
-    if (profile.room_layout) {
-      try {
-        const layoutData = typeof profile.room_layout === 'string' 
-          ? JSON.parse(profile.room_layout) 
-          : profile.room_layout;
-          
-        // 🚨 교정: 고도의 저장 방식(Piano001_Spawn_123)에 맞춰 객체의 키(Keys)를 분석
-        if (layoutData && typeof layoutData === 'object' && !Array.isArray(layoutData)) {
-          placedCount = Object.keys(layoutData).filter(key => key.split('_')[0] === itemId).length;
-        }
-      } catch (e) {
-        console.error("레이아웃 파싱 오류", e);
-      }
-    }
+    const placedCount = ROOM_IDS.reduce((count, roomId) => {
+      const roomLayout = roomLayoutByRoom.rooms[roomId];
+      return count + Object.keys(roomLayout).filter(key => key.split('_')[0] === itemId).length;
+    }, 0);
 
     // 2. 총 보유량 및 삭제 가능 수량 산출
     const totalCount = inventory[itemId] || 0;
@@ -757,8 +941,35 @@ useEffect(() => {
         title="3D Room Viewer"
         onLoad={handleIframeLoad}
         allow="autoplay; cross-origin-isolated"
-        style={{ width: '100%', height: '100%', position: 'absolute', inset: 0, border: 'none', pointerEvents: 'auto' }}
+        style={{
+          width: '100%',
+          height: '100%',
+          position: 'absolute',
+          inset: 0,
+          border: 'none',
+          pointerEvents: initialRoomSyncDone ? 'auto' : 'none',
+          opacity: initialRoomSyncDone ? 1 : 0,
+          transition: 'opacity 150ms ease-out',
+        }}
       />
+
+      {!initialRoomSyncDone && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-[#060b18]/90 px-4 backdrop-blur-md pointer-events-auto">
+          <div className="flex max-w-sm flex-col items-center rounded-xl border border-white/10 bg-[#0b101e]/90 px-7 py-6 text-center shadow-[0_18px_60px_rgba(0,0,0,0.55)]">
+            <div
+              className="mb-4 h-7 w-7 animate-spin rounded-full border-2 border-white/15 border-t-[#22d3ee]"
+              role="status"
+              aria-label="스튜디오 로딩 중"
+            />
+            <p className="text-sm font-bold text-white md:text-base">
+              스튜디오 불러오는 중...
+            </p>
+            <p className="mt-2 text-xs text-white/50">
+              작업실과 가구 배치를 준비하고 있어요
+            </p>
+          </div>
+        </div>
+      )}
 
 {/* 🚨 가구 제어 모바일 전용 물리 버튼 (미니멀리즘 + 고급 글래스모피즘 + 유니코드 심볼) */}
       {!isVisiting && isEditMode && isMobile && showHud && (
@@ -886,6 +1097,10 @@ useEffect(() => {
               onOpenChange={setIsStudioMenuOpen}
               currentUserId={profile.id}
               unlockedRooms={unlockedRooms}
+              currentRoomId={currentRoomId}
+              onSelectRoom={handleSelectRoom}
+              defaultRoomId={defaultRoomId}
+              onSetDefaultRoom={handleSetDefaultRoom}
             />
           </div>
           

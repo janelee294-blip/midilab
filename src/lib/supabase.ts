@@ -48,6 +48,11 @@ export interface RoomLayoutItem {
   rot_y: number;
 }
 
+export interface RoomLayoutByRoom {
+  schema_version: 2;
+  rooms: Record<string, Record<string, RoomLayoutItem>>;
+}
+
 export interface Profile {
   id: string;
   full_name: string;
@@ -58,8 +63,9 @@ export interface Profile {
   tickets: number;
   points: number;
   inventory: Record<string, number>;
-  room_layout: Record<string, RoomLayoutItem>;
+  room_layout: Record<string, RoomLayoutItem> | RoomLayoutByRoom;
   unlocked_rooms: string[];
+  default_room_id?: string | null;
   expiry_date: string | null;
   payment_amount: number;
   unit_price: number;
