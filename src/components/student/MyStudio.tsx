@@ -51,27 +51,33 @@ const ROOM_DISPLAY_INFO: Record<string, { level: number; name: string }> = {
   room_lv3: { level: 3, name: '시그니처 스튜디오' },
 };
 
-function useStudioEnv(): StudioEnv {
+function useStudioEnv(): { env: StudioEnv; loaded: boolean } {
   const [env, setEnv] = useState<StudioEnv>(DEFAULT_ENV);
+  const [loaded, setLoaded] = useState(false);
   useEffect(() => {
     supabase.from('platform_config').select('value').eq('key','studio_env').maybeSingle()
       .then(({ data }) => {
-        if (!data?.value) return;
-        try {
-          const cfg: StudioEnv = JSON.parse(data.value);
-          if (cfg.mode === 'auto') cfg.time = localTime();
-          setEnv({ ...DEFAULT_ENV, ...cfg });
-        } catch { /* ignore */ }
+        if (data?.value) {
+          try {
+            const cfg: StudioEnv = JSON.parse(data.value);
+            if (cfg.mode === 'auto') cfg.time = localTime();
+            setEnv({ ...DEFAULT_ENV, ...cfg });
+          } catch { /* ignore */ }
+        }
+        setLoaded(true);
       });
   }, []);
   useEffect(() => {
     if (env.mode !== 'auto') return;
     const id = setInterval(() => {
-      setEnv(e => ({ ...e, time: localTime() }));
+      setEnv(e => {
+        const nextTime = localTime();
+        return e.time === nextTime ? e : { ...e, time: nextTime };
+      });
     }, 60_000);
     return () => clearInterval(id);
   }, [env.mode]);
-  return env;
+  return { env, loaded };
 }
 
 interface Playlist { id:string; title:string; url:string; season_tag:string; sort_order:number }
@@ -339,7 +345,7 @@ export function MyStudio({ profile, isActive = true }: { profile: Profile, isAct
   const info = ROOM_DISPLAY_INFO[currentRoomId] || ROOM_DISPLAY_INFO.room_lv1;
   const { refreshProfile } = useAuth(); 
 
-  const env  = useStudioEnv();
+  const { env, loaded: envLoaded } = useStudioEnv();
   const playlists = usePlaylists(env.theme);
   const [full, setFull]   = useState(false);
   const [showHud, setShowHud] = useState(true);
@@ -367,6 +373,7 @@ export function MyStudio({ profile, isActive = true }: { profile: Profile, isAct
   const [trackConfig, setTrackConfig] = useState({ width: 0, visibleSlots: 8, itemW: 120, gapW: 16 });
   const [isMobile, setIsMobile] = useState(false);
   const trackWrapperRef = useRef<HTMLDivElement>(null);
+  const lastSentEnvKeyRef = useRef<string | null>(null);
 
   const godotFrameRef = useRef<HTMLIFrameElement>(null);
   const containerRef = useRef<HTMLDivElement>(null); 
@@ -650,10 +657,8 @@ useEffect(() => {
   }, [profile.id, sendToGodot]);
 
   const handleIframeLoad = () => {
-    setIsGodotLoaded(true);
-    setTimeout(() => {
-      loadStudioData();
-    }, 300);
+    setIsGodotLoaded(false);
+    lastSentEnvKeyRef.current = null;
   };
 
   useEffect(() => {
@@ -664,7 +669,6 @@ useEffect(() => {
       
       switch (event.data.type) {
         case 'GODOT_READY':
-          setIsGodotLoaded(true);
           loadStudioData(true);
           break;
         case 'OPEN_SHOP': setIsShopOpen(true); break;
@@ -761,11 +765,23 @@ useEffect(() => {
     };
   }, [currentRoomId, isVisiting, loadStudioData, profile.id, roomLayoutByRoom]);
 
+  const sendEnvUpdate = useCallback((nextEnv: StudioEnv) => {
+    const envKey = JSON.stringify({
+      mode: nextEnv.mode,
+      time: nextEnv.time,
+      weather: nextEnv.weather,
+      theme: nextEnv.theme,
+    });
+    if (lastSentEnvKeyRef.current === envKey) return;
+
+    lastSentEnvKeyRef.current = envKey;
+    sendToGodot('env_update', nextEnv);
+  }, [sendToGodot]);
+
   useEffect(() => {
-    if (isGodotLoaded) {
-      sendToGodot('env_update', env);
-    }
-  }, [env, isGodotLoaded, sendToGodot]);
+    if (!isGodotLoaded || !envLoaded) return;
+    sendEnvUpdate(env);
+  }, [env, envLoaded, isGodotLoaded, sendEnvUpdate]);
 
   useEffect(() => { setMuted(!isActive); }, [isActive]);
   useEffect(() => { setTrackIdx(0); }, [playlists.length]);

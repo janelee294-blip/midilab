@@ -44,7 +44,9 @@ function formatCount(value: number | string | undefined): string {
 }
 
 function StudioSettings() {
-  const [env,       setEnv]       = useState<StudioEnv>(DEFAULT_ENV);
+  const [env,       setEnv]       = useState<StudioEnv | null>(null);
+  const [envLoading, setEnvLoading] = useState(true);
+  const [envError, setEnvError] = useState('');
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [newTitle,  setNewTitle]  = useState('');
   const [newUrl,    setNewUrl]    = useState('');
@@ -53,13 +55,47 @@ function StudioSettings() {
   const [saved,     setSaved]     = useState(false);
   const [addingPl,  setAddingPl]  = useState(false);
 
-  useEffect(() => {
-    supabase.from('platform_config').select('value').eq('key','studio_env').maybeSingle()
-      .then(({ data }) => {
-        if (data?.value) try { setEnv({...DEFAULT_ENV,...JSON.parse(data.value)}); } catch {}
-      });
-    loadPlaylists();
+  const loadEnv = useCallback(async () => {
+    setEnvLoading(true);
+    setEnvError('');
+
+    const { data, error } = await supabase
+      .from('platform_config')
+      .select('value')
+      .eq('key', 'studio_env')
+      .maybeSingle();
+
+    if (error) {
+      console.error('[AdminSettings] failed to load studio_env', error);
+      setEnvError('작업실 환경 설정을 불러오지 못했습니다.');
+      setEnvLoading(false);
+      return;
+    }
+
+    console.log('[AdminSettings] loaded studio_env raw', data?.value);
+
+    if (!data?.value) {
+      setEnv({ ...DEFAULT_ENV });
+      setEnvLoading(false);
+      return;
+    }
+
+    try {
+      const parsed = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+      console.log('[AdminSettings] parsed studio_env', parsed);
+      setEnv({ ...DEFAULT_ENV, ...parsed });
+    } catch (error) {
+      console.error('[AdminSettings] failed to parse studio_env', error);
+      setEnvError('저장된 작업실 환경 설정의 형식이 올바르지 않습니다.');
+    } finally {
+      setEnvLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadEnv();
+    loadPlaylists();
+  }, [loadEnv]);
 
   async function loadPlaylists() {
     const { data } = await supabase.from('studio_playlists').select('*').order('sort_order');
@@ -67,10 +103,22 @@ function StudioSettings() {
   }
 
   async function saveEnv() {
+    if (!env || envLoading) return;
+
     setSaving(true);
-    await supabase.from('platform_config')
+    setEnvError('');
+    console.log('[AdminSettings] saving studio_env', env);
+    const { error } = await supabase.from('platform_config')
       .upsert({ key:'studio_env', value: JSON.stringify(env), updated_at: new Date().toISOString() },
                { onConflict:'key' });
+
+    if (error) {
+      console.error('[AdminSettings] failed to save studio_env', error);
+      setEnvError('작업실 환경 설정을 저장하지 못했습니다.');
+      setSaving(false);
+      return;
+    }
+
     setSaved(true); setSaving(false);
     setTimeout(()=>setSaved(false), 3000);
   }
@@ -119,14 +167,27 @@ function StudioSettings() {
         </div>
       )}
 
+      {envLoading && (
+        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+          작업실 환경 설정을 불러오는 중...
+        </div>
+      )}
+
+      {envError && (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          {envError}
+        </div>
+      )}
+
+      {env && !envLoading && <>
       {/* Mode */}
       <div>
         <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
           <Clock size={11}/> 환경 모드
         </p>
         <div className="flex gap-2">
-          {chip(env.mode==='auto',  ()=>setEnv(e=>({...e,mode:'auto'})),  '자동 (현지 시간)')}
-          {chip(env.mode==='manual',()=>setEnv(e=>({...e,mode:'manual'})),'수동 설정')}
+          {chip(env.mode==='auto',  ()=>setEnv(e=>e ? ({...e,mode:'auto'}) : e),  '자동 (현지 시간)')}
+          {chip(env.mode==='manual',()=>setEnv(e=>e ? ({...e,mode:'manual'}) : e),'수동 설정')}
         </div>
       </div>
 
@@ -136,7 +197,7 @@ function StudioSettings() {
           <Sun size={11}/> 시간대
         </p>
         <div className="flex gap-2 flex-wrap">
-          {TIME_OPTS.map(o => chip(env.time===o.v, ()=>setEnv(e=>({...e,time:o.v})), o.label))}
+          {TIME_OPTS.map(o => chip(env.time===o.v, ()=>setEnv(e=>e ? ({...e,time:o.v}) : e), o.label))}
         </div>
       </div>
 
@@ -146,7 +207,7 @@ function StudioSettings() {
           <Cloud size={11}/> 날씨
         </p>
         <div className="flex gap-2">
-          {WEATHER_OPTS.map(o => chip(env.weather===o.v, ()=>setEnv(e=>({...e,weather:o.v})),
+          {WEATHER_OPTS.map(o => chip(env.weather===o.v, ()=>setEnv(e=>e ? ({...e,weather:o.v}) : e),
             <span className="flex items-center gap-1"><o.icon size={11}/>{o.label}</span>
           ))}
         </div>
@@ -158,13 +219,14 @@ function StudioSettings() {
           <Palette size={11}/> 시즌 테마
         </p>
         <div className="flex gap-2 flex-wrap">
-          {THEME_OPTS.map(o => chip(env.theme===o.v, ()=>setEnv(e=>({...e,theme:o.v})), o.label))}
+          {THEME_OPTS.map(o => chip(env.theme===o.v, ()=>setEnv(e=>e ? ({...e,theme:o.v}) : e), o.label))}
         </div>
       </div>
 
       <Button onClick={saveEnv} loading={saving}>
         <Save size={14}/> 환경 설정 저장
       </Button>
+      </>}
 
       {/* ── Playlist manager */}
       <div className="pt-4 border-t border-slate-100">

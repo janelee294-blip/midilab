@@ -45,10 +45,12 @@ export const STUDIO_ASSETS: StudioAsset[] = [
   { id: 'macbook001', name: '맥북', category: 'instrument', price: 0, description: '스튜디오 작업에 최적화된 맥북', icon: '💻', tag: '', obtain: ['gacha'], grade: 'epic' },
   { id: 'aiapollo', name: 'UA Apollo Twin X', category: 'instrument', price: 0, description: '하이엔드 오디오 인터페이스', icon: '💻', tag: '', obtain: ['gacha'], grade: 'epic' },
 
-  { id: 'sofa001', name: '인테리어 소파', category: 'furniture', price: 10, description: '편안한 휴식을 제공하는 가죽 소파', icon: '🛋️', tag: '', obtain: ['shop', 'gacha'], grade: 'rare' },
+  { id: 'sofa001', name: '가죽 소파', category: 'furniture', price: 10, description: '편안한 휴식을 제공하는 가죽 소파', icon: '🛋️', tag: '', obtain: ['shop', 'gacha'], grade: 'rare' },
+  { id: 'sofa002', name: '소파', category: 'furniture', price: 10, description: '편안한 휴식을 제공하는 소파', icon: '🛋️', tag: '', obtain: ['shop', 'gacha'], grade: 'rare' },
   { id: 'plant001', name: '인테리어 식물', category: 'furniture', price: 0, description: '방에 생기를 더해주는 식물', icon: '🌿', tag: '', obtain: ['gacha'], grade: 'rare' },
 
   { id: 'stool001', name: '작은 의자', category: 'furniture', price: 2, description: '작은 일반 의자', icon: '🪑', tag: '', obtain: ['shop'], grade: 'common' },
+  { id: 'chair001', name: '의자', category: 'furniture', price: 2, description: '작은 일반 의자', icon: '🪑', tag: '', obtain: ['shop'], grade: 'common' },
   { id: 'rug001', name: '하얀 카페트', category: 'furniture', price: 4, description: '바닥에 까는 심플한 카페트', icon: ' ', tag: '', obtain: ['shop'], grade: 'common' },
   { id: 'lamp001', name: '스탠드 조명', category: 'furniture', price: 2, description: '스탠드 조명', icon: '💡', tag: '', obtain: ['shop'], grade: 'common' },
   { id: 'pianochair001', name: '검정색 피아노 의자', category: 'furniture', price: 3, description: '검정색 피아노 의자', icon: '🪑', tag: '', obtain: ['shop'], grade: 'common' }
