@@ -29,6 +29,18 @@ export interface StudioEnv {
 
 const DEFAULT_ENV: StudioEnv = { mode:'auto', time:'night', weather:'sunny', theme:'default' };
 
+function formatDownloadSize(bytes: number): string {
+  const safeBytes = Number.isFinite(bytes) && bytes > 0 ? bytes : 0;
+  const KB = 1024;
+  const MB = KB * 1024;
+  const GB = MB * 1024;
+
+  if (safeBytes < KB) return `${Math.round(safeBytes)} B`;
+  if (safeBytes < MB) return `${(safeBytes / KB).toLocaleString(undefined, { maximumFractionDigits: 1 })} KB`;
+  if (safeBytes < GB) return `${(safeBytes / MB).toLocaleString(undefined, { maximumFractionDigits: 1 })} MB`;
+  return `${(safeBytes / GB).toLocaleString(undefined, { maximumFractionDigits: 2 })} GB`;
+}
+
 function localTime(): EnvTime {
   const h = new Date().getHours();
   if (h >= 5  && h < 12) return 'morning';
@@ -365,6 +377,7 @@ export function MyStudio({ profile, isActive = true }: { profile: Profile, isAct
   const [ticketNotification, setTicketNotification] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isGodotLoaded, setIsGodotLoaded] = useState(false);
+  const [godotLoadProgress, setGodotLoadProgress] = useState({ percent: 0, current: 0, total: 0 });
   const [initialRoomSyncDone, setInitialRoomSyncDone] = useState(false);
   const [isVisiting, setIsVisiting] = useState(false);
   const [todayVisitCount, setTodayVisitCount] = useState(0);
@@ -740,6 +753,7 @@ useEffect(() => {
 
   const handleIframeLoad = () => {
     setIsGodotLoaded(false);
+    setGodotLoadProgress({ percent: 0, current: 0, total: 0 });
     lastSentEnvKeyRef.current = null;
   };
 
@@ -750,6 +764,18 @@ useEffect(() => {
       if (!event.data || !event.data.type) return;
       
       switch (event.data.type) {
+        case 'LOAD_PROGRESS':
+          if (event.data.source !== 'godot') break;
+          setGodotLoadProgress({
+            percent: Number(event.data.percent) || 0,
+            current: Number(event.data.current) || 0,
+            total: Number(event.data.total) || 0,
+          });
+          break;
+        case 'LOAD_COMPLETE':
+          if (event.data.source !== 'godot') break;
+          setGodotLoadProgress(current => ({ ...current, percent: 100 }));
+          break;
         case 'GODOT_READY':
           loadStudioData(true);
           break;
@@ -1251,6 +1277,28 @@ useEffect(() => {
             <p className="mt-2 text-xs text-white/50">
               작업실과 가구 배치를 준비하고 있어요
             </p>
+            <div className="mt-4 w-full">
+              <p className="text-sm font-black tabular-nums text-[#22d3ee]">
+                {godotLoadProgress.percent}%
+              </p>
+              <div
+                className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white/10"
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={godotLoadProgress.percent}
+              >
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-[#22d3ee] to-[#3b82f6] transition-[width] duration-200 ease-out"
+                  style={{ width: `${godotLoadProgress.percent}%` }}
+                />
+              </div>
+              {godotLoadProgress.total > 0 && (
+                <p className="mt-2 text-[11px] tabular-nums text-white/50">
+                  {formatDownloadSize(godotLoadProgress.current)} / {formatDownloadSize(godotLoadProgress.total)}
+                </p>
+              )}
+            </div>
           </div>
         </div>
       )}
