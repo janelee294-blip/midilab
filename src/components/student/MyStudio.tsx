@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react';
 import { Star, Maximize2, Minimize2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Music2, VolumeX, Volume2, ShoppingCart, Sparkles, Store, HelpCircle, Hammer, Check, PackageOpen, Edit2, Trash2, DoorOpen } from 'lucide-react';
 import type { Profile } from '../../lib/supabase';
 import { supabase } from '../../lib/supabase';
@@ -362,6 +362,7 @@ export function MyStudio({ profile, isActive = true }: { profile: Profile, isAct
   const [isInvOpen, setIsInvOpen] = useState(true); 
   
   const [inventory, setInventory] = useState<{ [key: string]: number }>({});
+  const [ticketNotification, setTicketNotification] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isGodotLoaded, setIsGodotLoaded] = useState(false);
   const [initialRoomSyncDone, setInitialRoomSyncDone] = useState(false);
@@ -370,6 +371,46 @@ export function MyStudio({ profile, isActive = true }: { profile: Profile, isAct
   const [totalVisitCount, setTotalVisitCount] = useState(0);
 
   const [inventoryPage, setInventoryPage] = useState(0);
+  const [hoveredInventoryDescription, setHoveredInventoryDescription] = useState<{
+    description: string;
+    left: number;
+    top: number;
+    placement: 'above' | 'below';
+    cardCenterX: number;
+    tailLeft: number;
+  } | null>(null);
+  const desktopInventoryTooltipRef = useRef<HTMLDivElement>(null);
+  const [mobileInventoryDescription, setMobileInventoryDescription] = useState<{
+    name: string;
+    description: string;
+    left: number;
+    top: number;
+    placement: 'above' | 'below';
+  } | null>(null);
+  const [mobileInventoryDescriptionVisible, setMobileInventoryDescriptionVisible] = useState(false);
+  const mobileLongPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mobileInventoryDescriptionCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mobileInventoryDescriptionEnterFrameRef = useRef<number | null>(null);
+  const mobileLongPressStartRef = useRef<{ x: number; y: number } | null>(null);
+  const mobileLongPressTriggeredRef = useRef(false);
+  const mobileLongPressMovedRef = useRef(false);
+  const [miniMobileInventoryDescription, setMiniMobileInventoryDescription] = useState<{
+    name: string;
+    description: string;
+    left: number;
+    top: number;
+    placement: 'above' | 'below';
+    cardCenterX: number;
+    tailLeft: number;
+  } | null>(null);
+  const [miniMobileInventoryDescriptionVisible, setMiniMobileInventoryDescriptionVisible] = useState(false);
+  const miniMobileInventoryTooltipRef = useRef<HTMLDivElement>(null);
+  const miniMobileLongPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const miniMobileInventoryDescriptionCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const miniMobileInventoryDescriptionEnterFrameRef = useRef<number | null>(null);
+  const miniMobileLongPressStartRef = useRef<{ x: number; y: number } | null>(null);
+  const miniMobileLongPressTriggeredRef = useRef(false);
+  const miniMobileLongPressMovedRef = useRef(false);
   const [trackConfig, setTrackConfig] = useState({ width: 0, visibleSlots: 8, itemW: 120, gapW: 16 });
   const [isMobile, setIsMobile] = useState(false);
   const trackWrapperRef = useRef<HTMLDivElement>(null);
@@ -403,6 +444,47 @@ useEffect(() => {
     JSON.stringify(activePassives)
   );
 }, [activePassives]);
+
+  useLayoutEffect(() => {
+    const tooltip = desktopInventoryTooltipRef.current;
+    if (!tooltip || !hoveredInventoryDescription) return;
+
+    const tooltipWidth = tooltip.offsetWidth;
+    const halfTooltipWidth = tooltipWidth / 2;
+    const viewportPadding = 8;
+    const tooltipLeft = Math.min(
+      window.innerWidth - halfTooltipWidth - viewportPadding,
+      Math.max(halfTooltipWidth + viewportPadding, hoveredInventoryDescription.cardCenterX)
+    );
+    const tooltipActualLeft = tooltipLeft - halfTooltipWidth;
+    const tailPadding = 12;
+    const tailLeft = Math.min(
+      tooltipWidth - tailPadding,
+      Math.max(tailPadding, hoveredInventoryDescription.cardCenterX - tooltipActualLeft)
+    );
+
+    setHoveredInventoryDescription(current => {
+      if (!current || (current.left === tooltipLeft && current.tailLeft === tailLeft)) return current;
+      return { ...current, left: tooltipLeft, tailLeft };
+    });
+  }, [hoveredInventoryDescription?.cardCenterX, hoveredInventoryDescription?.description]);
+
+  useLayoutEffect(() => {
+    const tooltip = miniMobileInventoryTooltipRef.current;
+    if (!tooltip || !miniMobileInventoryDescription) return;
+
+    const tooltipWidth = tooltip.offsetWidth;
+    const tooltipActualLeft = miniMobileInventoryDescription.left - tooltipWidth / 2;
+    const tailLeft = Math.min(
+      tooltipWidth - 12,
+      Math.max(12, miniMobileInventoryDescription.cardCenterX - tooltipActualLeft)
+    );
+
+    setMiniMobileInventoryDescription(current => {
+      if (!current || current.tailLeft === tailLeft) return current;
+      return { ...current, tailLeft };
+    });
+  }, [miniMobileInventoryDescription?.cardCenterX, miniMobileInventoryDescription?.description]);
 
   // 🚨 이름 수정 및 DB 저장 (완벽한 낙관적 업데이트)
   const handleNameSave = async () => {
@@ -911,14 +993,200 @@ useEffect(() => {
   const handlePrevPage = () => setInventoryPage((p) => Math.max(0, p - 1));
   const handleNextPage = () => setInventoryPage((p) => Math.min(MAX_PAGE, p + 1));
 
+  const closeMobileInventoryDescription = useCallback(() => {
+    if (mobileInventoryDescriptionEnterFrameRef.current !== null) {
+      cancelAnimationFrame(mobileInventoryDescriptionEnterFrameRef.current);
+      mobileInventoryDescriptionEnterFrameRef.current = null;
+    }
+    setMobileInventoryDescriptionVisible(false);
+    if (mobileInventoryDescriptionCloseTimerRef.current) {
+      clearTimeout(mobileInventoryDescriptionCloseTimerRef.current);
+    }
+    mobileInventoryDescriptionCloseTimerRef.current = setTimeout(() => {
+      setMobileInventoryDescription(null);
+      mobileInventoryDescriptionCloseTimerRef.current = null;
+    }, 150);
+  }, []);
+
+  const closeMiniMobileInventoryDescription = useCallback(() => {
+    if (miniMobileInventoryDescriptionEnterFrameRef.current !== null) {
+      cancelAnimationFrame(miniMobileInventoryDescriptionEnterFrameRef.current);
+      miniMobileInventoryDescriptionEnterFrameRef.current = null;
+    }
+    setMiniMobileInventoryDescriptionVisible(false);
+    if (miniMobileInventoryDescriptionCloseTimerRef.current) {
+      clearTimeout(miniMobileInventoryDescriptionCloseTimerRef.current);
+    }
+    miniMobileInventoryDescriptionCloseTimerRef.current = setTimeout(() => {
+      setMiniMobileInventoryDescription(null);
+      miniMobileInventoryDescriptionCloseTimerRef.current = null;
+    }, 150);
+  }, []);
+
+  useEffect(() => {
+    setHoveredInventoryDescription(null);
+  }, [inventoryPage]);
+
+  useEffect(() => {
+    const hideInventoryDescription = () => setHoveredInventoryDescription(null);
+    window.addEventListener('scroll', hideInventoryDescription, true);
+    return () => window.removeEventListener('scroll', hideInventoryDescription, true);
+  }, []);
+
+  useEffect(() => {
+    setMobileInventoryDescriptionVisible(false);
+    setMobileInventoryDescription(null);
+  }, [inventoryPage]);
+
+  useEffect(() => {
+    const hideMobileInventoryDescription = () => {
+      if (window.innerWidth < 768) closeMobileInventoryDescription();
+    };
+
+    document.addEventListener('pointerdown', hideMobileInventoryDescription);
+    window.addEventListener('scroll', hideMobileInventoryDescription, true);
+    return () => {
+      document.removeEventListener('pointerdown', hideMobileInventoryDescription);
+      window.removeEventListener('scroll', hideMobileInventoryDescription, true);
+      if (mobileLongPressTimerRef.current) clearTimeout(mobileLongPressTimerRef.current);
+      if (mobileInventoryDescriptionCloseTimerRef.current) clearTimeout(mobileInventoryDescriptionCloseTimerRef.current);
+      if (mobileInventoryDescriptionEnterFrameRef.current !== null) cancelAnimationFrame(mobileInventoryDescriptionEnterFrameRef.current);
+    };
+  }, [closeMobileInventoryDescription]);
+
+  useEffect(() => {
+    const hideMiniMobileInventoryDescription = () => {
+      if (window.innerWidth < 768) closeMiniMobileInventoryDescription();
+    };
+
+    document.addEventListener('pointerdown', hideMiniMobileInventoryDescription);
+    window.addEventListener('scroll', hideMiniMobileInventoryDescription, true);
+    return () => {
+      document.removeEventListener('pointerdown', hideMiniMobileInventoryDescription);
+      window.removeEventListener('scroll', hideMiniMobileInventoryDescription, true);
+      if (miniMobileLongPressTimerRef.current) clearTimeout(miniMobileLongPressTimerRef.current);
+      if (miniMobileInventoryDescriptionCloseTimerRef.current) clearTimeout(miniMobileInventoryDescriptionCloseTimerRef.current);
+      if (miniMobileInventoryDescriptionEnterFrameRef.current !== null) cancelAnimationFrame(miniMobileInventoryDescriptionEnterFrameRef.current);
+    };
+  }, [closeMiniMobileInventoryDescription]);
+
+  const showTicketNotification = (message: string) => {
+    setTicketNotification(message);
+    setTimeout(() => setTicketNotification(null), 3000);
+  };
+
   const containerStyle: React.CSSProperties = full
     ? { width: '100%', height: '100%', margin: 0, padding: 0, maxWidth: 'none' }
     : { width: '100%', height:'calc(100vh - 102px)', minHeight:400 };
 
   return (
     <div ref={containerRef} className="relative w-full overflow-hidden select-none bg-[#060b18]" style={containerStyle}>
+      {ticketNotification && (
+        <div className="absolute top-10 left-1/2 -translate-x-1/2 z-[120] bg-[#22d3ee]/20 border border-[#22d3ee]/50 text-white px-4 py-2 md:px-6 md:py-3 text-sm md:text-base rounded-full backdrop-blur-md shadow-2xl whitespace-nowrap pointer-events-none">
+          {ticketNotification}
+        </div>
+      )}
+
+      {hoveredInventoryDescription && (
+        <div
+          ref={desktopInventoryTooltipRef}
+          className="fixed z-[200] hidden w-max max-w-xs rounded-xl border border-white/10 bg-[#060b18]/95 px-3 py-2 text-center text-white shadow-2xl pointer-events-none md:block"
+          style={{
+            left: hoveredInventoryDescription.left,
+            top: hoveredInventoryDescription.top,
+            animation: 'inventory-tooltip-fade-in 150ms ease-out both',
+            transform: hoveredInventoryDescription.placement === 'above'
+              ? 'translate(-50%, -100%)'
+              : 'translate(-50%, 0)',
+          }}
+        >
+          <span className="line-clamp-3 whitespace-pre-line text-[8px] md:text-[9px] leading-tight text-white/70 font-medium">
+            {hoveredInventoryDescription.description}
+          </span>
+          <div
+            className={`absolute -translate-x-1/2 w-2 h-2 bg-[#060b18]/95 rotate-45 ${
+              hoveredInventoryDescription.placement === 'above'
+                ? '-bottom-1 border-b border-r border-white/10'
+                : '-top-1 border-t border-l border-white/10'
+            }`}
+            style={{ left: hoveredInventoryDescription.tailLeft }}
+          />
+        </div>
+      )}
+
+      {mobileInventoryDescription && (
+        <div
+          className="fixed z-[200] w-max rounded-xl border border-white/10 bg-[#060b18]/95 px-3 py-2 text-center text-white shadow-2xl pointer-events-none md:hidden"
+          style={{
+            left: mobileInventoryDescription.left,
+            top: mobileInventoryDescription.top,
+            maxWidth: 'min(15rem, calc(100vw - 1rem))',
+            opacity: mobileInventoryDescriptionVisible ? 1 : 0,
+            translate: mobileInventoryDescriptionVisible ? '0 0' : '0 2px',
+            scale: mobileInventoryDescriptionVisible ? '1' : '0.98',
+            transition: 'opacity 150ms ease, translate 150ms ease, scale 150ms ease',
+            transform: mobileInventoryDescription.placement === 'above'
+              ? 'translate(-50%, -100%)'
+              : 'translate(-50%, 0)',
+          }}
+        >
+          <div className="flex flex-col items-center gap-1">
+            <span className="text-[10px] font-black text-[#f9c76d]">
+              {mobileInventoryDescription.name}
+            </span>
+            <span className="line-clamp-3 whitespace-pre-line text-[9px] leading-tight text-white/70 font-medium">
+              {mobileInventoryDescription.description}
+            </span>
+          </div>
+          <div className={`absolute left-1/2 -translate-x-1/2 w-2 h-2 bg-[#060b18]/95 rotate-45 ${
+            mobileInventoryDescription.placement === 'above'
+              ? '-bottom-1 border-b border-r border-white/10'
+              : '-top-1 border-t border-l border-white/10'
+          }`} />
+        </div>
+      )}
+
+      {miniMobileInventoryDescription && (
+        <div
+          ref={miniMobileInventoryTooltipRef}
+          className="fixed z-[200] w-max rounded-xl border border-white/10 bg-[#060b18]/95 px-3 py-2 text-center text-white shadow-2xl pointer-events-none md:hidden"
+          style={{
+            left: miniMobileInventoryDescription.left,
+            top: miniMobileInventoryDescription.top,
+            maxWidth: 'min(15rem, calc(100vw - 1rem))',
+            opacity: miniMobileInventoryDescriptionVisible ? 1 : 0,
+            translate: miniMobileInventoryDescriptionVisible ? '0 0' : '0 2px',
+            scale: miniMobileInventoryDescriptionVisible ? '1' : '0.98',
+            transition: 'opacity 150ms ease, translate 150ms ease, scale 150ms ease',
+            transform: miniMobileInventoryDescription.placement === 'above'
+              ? 'translate(-50%, -100%)'
+              : 'translate(-50%, 0)',
+          }}
+        >
+          <div className="flex flex-col items-center gap-1">
+            <span className="text-[10px] font-black text-[#f9c76d]">
+              {miniMobileInventoryDescription.name}
+            </span>
+            <span className="line-clamp-3 whitespace-pre-line text-[9px] leading-tight text-white/70 font-medium">
+              {miniMobileInventoryDescription.description}
+            </span>
+          </div>
+          <div
+            className={`absolute -translate-x-1/2 w-2 h-2 bg-[#060b18]/95 rotate-45 ${
+              miniMobileInventoryDescription.placement === 'above'
+                ? '-bottom-1 border-b border-r border-white/10'
+                : '-top-1 border-t border-l border-white/10'
+            }`}
+            style={{ left: miniMobileInventoryDescription.tailLeft }}
+          />
+        </div>
+      )}
       
       <style>{`
+        @keyframes inventory-tooltip-fade-in {
+          from { opacity: 0; translate: 0 2px; scale: 0.98; }
+          to { opacity: 1; translate: 0 0; scale: 1; }
+        }
         @keyframes marquee-scroll {
           0% { transform: translateX(250px); }
           100% { transform: translateX(-100%); }
@@ -1292,7 +1560,18 @@ useEffect(() => {
 
                   return (
                     <div key={meta.id} 
-                      onClick={() => {
+                      onClick={(event) => {
+                        if (
+                          window.innerWidth < 768 &&
+                          (miniMobileLongPressTriggeredRef.current || miniMobileLongPressMovedRef.current)
+                        ) {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          miniMobileLongPressTriggeredRef.current = false;
+                          miniMobileLongPressMovedRef.current = false;
+                          return;
+                        }
+
                         if (meta.grade === 'passive') {
                           setActivePassives(prev => {
                             const currentState = prev[meta.id] ?? true;
@@ -1303,6 +1582,103 @@ useEffect(() => {
                         } else if (isTicket) {
                           setSelectedTicket(meta);
                         }
+                      }}
+                      onPointerDown={(event) => {
+                        if (window.innerWidth >= 768 || event.pointerType !== 'touch') return;
+
+                        if (miniMobileInventoryDescriptionCloseTimerRef.current) {
+                          clearTimeout(miniMobileInventoryDescriptionCloseTimerRef.current);
+                          miniMobileInventoryDescriptionCloseTimerRef.current = null;
+                        }
+                        if (miniMobileInventoryDescriptionEnterFrameRef.current !== null) {
+                          cancelAnimationFrame(miniMobileInventoryDescriptionEnterFrameRef.current);
+                          miniMobileInventoryDescriptionEnterFrameRef.current = null;
+                        }
+                        setMiniMobileInventoryDescriptionVisible(false);
+                        setMiniMobileInventoryDescription(null);
+                        miniMobileLongPressTriggeredRef.current = false;
+                        miniMobileLongPressMovedRef.current = false;
+                        miniMobileLongPressStartRef.current = { x: event.clientX, y: event.clientY };
+
+                        if (miniMobileLongPressTimerRef.current) clearTimeout(miniMobileLongPressTimerRef.current);
+                        if (!meta.description) return;
+
+                        const rect = event.currentTarget.getBoundingClientRect();
+                        const longestLineLength = Math.max(
+                          Array.from(meta.name).length,
+                          ...meta.description.split('\n').map(line => Array.from(line).length)
+                        );
+                        const tooltipWidth = Math.min(
+                          240,
+                          Math.max(48, longestLineLength * 9 + 24),
+                          window.innerWidth - 16
+                        );
+                        const halfTooltipWidth = tooltipWidth / 2;
+                        const viewportPadding = 8;
+                        const cardCenterX = rect.left + rect.width / 2;
+                        const left = Math.min(
+                          window.innerWidth - halfTooltipWidth - viewportPadding,
+                          Math.max(halfTooltipWidth + viewportPadding, cardCenterX)
+                        );
+                        const placement = rect.top < 96 ? 'below' : 'above';
+
+                        miniMobileLongPressTimerRef.current = setTimeout(() => {
+                          miniMobileLongPressTimerRef.current = null;
+                          miniMobileLongPressTriggeredRef.current = true;
+                          setMiniMobileInventoryDescription({
+                            name: meta.name,
+                            description: meta.description,
+                            left,
+                            top: placement === 'above' ? rect.top - 8 : rect.bottom + 8,
+                            placement,
+                            cardCenterX,
+                            tailLeft: Math.min(
+                              tooltipWidth - 12,
+                              Math.max(12, tooltipWidth / 2 + cardCenterX - left)
+                            ),
+                          });
+                          miniMobileInventoryDescriptionEnterFrameRef.current = requestAnimationFrame(() => {
+                            miniMobileInventoryDescriptionEnterFrameRef.current = null;
+                            setMiniMobileInventoryDescriptionVisible(true);
+                          });
+                        }, 550);
+                      }}
+                      onPointerMove={(event) => {
+                        if (window.innerWidth >= 768 || !miniMobileLongPressStartRef.current) return;
+
+                        const deltaX = event.clientX - miniMobileLongPressStartRef.current.x;
+                        const deltaY = event.clientY - miniMobileLongPressStartRef.current.y;
+                        if (Math.hypot(deltaX, deltaY) <= 10) return;
+
+                        if (miniMobileLongPressTimerRef.current) {
+                          clearTimeout(miniMobileLongPressTimerRef.current);
+                          miniMobileLongPressTimerRef.current = null;
+                        }
+                        miniMobileLongPressStartRef.current = null;
+                        miniMobileLongPressMovedRef.current = true;
+                        closeMiniMobileInventoryDescription();
+                      }}
+                      onPointerUp={(event) => {
+                        if (window.innerWidth >= 768 || event.pointerType !== 'touch') return;
+                        if (miniMobileLongPressTimerRef.current) {
+                          clearTimeout(miniMobileLongPressTimerRef.current);
+                          miniMobileLongPressTimerRef.current = null;
+                        }
+                        miniMobileLongPressStartRef.current = null;
+                        closeMiniMobileInventoryDescription();
+                      }}
+                      onPointerCancel={(event) => {
+                        if (window.innerWidth >= 768 || event.pointerType !== 'touch') return;
+                        if (miniMobileLongPressTimerRef.current) {
+                          clearTimeout(miniMobileLongPressTimerRef.current);
+                          miniMobileLongPressTimerRef.current = null;
+                        }
+                        miniMobileLongPressStartRef.current = null;
+                        miniMobileLongPressMovedRef.current = true;
+                        closeMiniMobileInventoryDescription();
+                      }}
+                      onContextMenu={(event) => {
+                        if (window.innerWidth < 768) event.preventDefault();
                       }}
                       // 🚨 원본 디자인과 모션(hover:scale-105) 완벽 유지
                       className={`group relative w-8 h-8 md:w-11 md:h-11 rounded-lg flex items-center justify-center backdrop-blur-md transition-all duration-300 ${
@@ -1333,7 +1709,7 @@ useEffect(() => {
                       {/* Hover 툴팁 (변경 없음) */}
                       <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 opacity-0 md:group-hover:opacity-100 transition-opacity bg-[#060b18]/95 text-white px-3 py-2 rounded-xl whitespace-nowrap z-50 pointer-events-none border border-white/10 shadow-2xl flex flex-col items-center gap-1">
                         <span className="text-[10px] md:text-xs font-black text-[#f9c76d]">{meta.name}</span>
-                        <span className="text-[8px] md:text-[9px] text-white/70 font-medium">{meta.description}</span>
+                        <span className="text-[8px] md:text-[9px] text-white/70 font-medium whitespace-pre-line">{meta.description}</span>
                         <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-[#060b18]/95 border-b border-r border-white/10 rotate-45" />
                       </div>
                     </div>
@@ -1442,7 +1818,142 @@ useEffect(() => {
                         }
 
                         return (
-                          <button key={itemName} onClick={() => handleItemClick(itemName)}
+                          <button key={itemName} onClick={(event) => {
+                            if (
+                              window.innerWidth < 768 &&
+                              (mobileLongPressTriggeredRef.current || mobileLongPressMovedRef.current)
+                            ) {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              mobileLongPressTriggeredRef.current = false;
+                              mobileLongPressMovedRef.current = false;
+                              return;
+                            }
+
+                            if (window.innerWidth < 768) setMobileInventoryDescription(null);
+                            handleItemClick(itemName);
+                          }}
+                            onMouseEnter={(event) => {
+                              if (!foundMeta?.description || window.innerWidth < 768) {
+                                setHoveredInventoryDescription(null);
+                                return;
+                              }
+
+                              const rect = event.currentTarget.getBoundingClientRect();
+                              const tooltipWidth = Math.min(320, window.innerWidth - 16);
+                              const halfTooltipWidth = tooltipWidth / 2;
+                              const viewportPadding = 8;
+                              const cardCenterX = rect.left + rect.width / 2;
+                              const left = Math.min(
+                                window.innerWidth - halfTooltipWidth - viewportPadding,
+                                Math.max(halfTooltipWidth + viewportPadding, cardCenterX)
+                              );
+                              const placement = rect.top < 72 ? 'below' : 'above';
+
+                              setHoveredInventoryDescription({
+                                description: foundMeta.description,
+                                left,
+                                top: placement === 'above' ? rect.top - 8 : rect.bottom + 8,
+                                placement,
+                                cardCenterX,
+                                tailLeft: Math.min(
+                                  tooltipWidth - 12,
+                                  Math.max(12, tooltipWidth / 2 + cardCenterX - left)
+                                ),
+                              });
+                            }}
+                            onMouseLeave={() => setHoveredInventoryDescription(null)}
+                            onPointerDown={(event) => {
+                              if (window.innerWidth >= 768 || event.pointerType !== 'touch') return;
+
+                              if (mobileInventoryDescriptionCloseTimerRef.current) {
+                                clearTimeout(mobileInventoryDescriptionCloseTimerRef.current);
+                                mobileInventoryDescriptionCloseTimerRef.current = null;
+                              }
+                              if (mobileInventoryDescriptionEnterFrameRef.current !== null) {
+                                cancelAnimationFrame(mobileInventoryDescriptionEnterFrameRef.current);
+                                mobileInventoryDescriptionEnterFrameRef.current = null;
+                              }
+                              setMobileInventoryDescriptionVisible(false);
+                              setMobileInventoryDescription(null);
+                              mobileLongPressTriggeredRef.current = false;
+                              mobileLongPressMovedRef.current = false;
+                              mobileLongPressStartRef.current = { x: event.clientX, y: event.clientY };
+
+                              if (mobileLongPressTimerRef.current) clearTimeout(mobileLongPressTimerRef.current);
+                              if (!foundMeta?.description) return;
+
+                              const rect = event.currentTarget.getBoundingClientRect();
+                              const longestLineLength = Math.max(
+                                ...foundMeta.description.split('\n').map(line => Array.from(line).length)
+                              );
+                              const tooltipWidth = Math.min(
+                                240,
+                                Math.max(48, longestLineLength * 9 + 24),
+                                window.innerWidth - 16
+                              );
+                              const halfTooltipWidth = tooltipWidth / 2;
+                              const viewportPadding = 8;
+                              const cardCenter = rect.left + rect.width / 2;
+                              const left = Math.min(
+                                window.innerWidth - halfTooltipWidth - viewportPadding,
+                                Math.max(halfTooltipWidth + viewportPadding, cardCenter)
+                              );
+                              const placement = rect.top < 72 ? 'below' : 'above';
+
+                              mobileLongPressTimerRef.current = setTimeout(() => {
+                                mobileLongPressTimerRef.current = null;
+                                mobileLongPressTriggeredRef.current = true;
+                                setMobileInventoryDescription({
+                                  name: foundMeta.name,
+                                  description: foundMeta.description,
+                                  left,
+                                  top: placement === 'above' ? rect.top - 8 : rect.bottom + 8,
+                                  placement,
+                                });
+                                mobileInventoryDescriptionEnterFrameRef.current = requestAnimationFrame(() => {
+                                  mobileInventoryDescriptionEnterFrameRef.current = null;
+                                  setMobileInventoryDescriptionVisible(true);
+                                });
+                              }, 550);
+                            }}
+                            onPointerMove={(event) => {
+                              if (window.innerWidth >= 768 || !mobileLongPressStartRef.current) return;
+
+                              const deltaX = event.clientX - mobileLongPressStartRef.current.x;
+                              const deltaY = event.clientY - mobileLongPressStartRef.current.y;
+                              if (Math.hypot(deltaX, deltaY) <= 10) return;
+
+                              if (mobileLongPressTimerRef.current) {
+                                clearTimeout(mobileLongPressTimerRef.current);
+                                mobileLongPressTimerRef.current = null;
+                              }
+                              mobileLongPressStartRef.current = null;
+                              mobileLongPressMovedRef.current = true;
+                              closeMobileInventoryDescription();
+                            }}
+                            onPointerUp={(event) => {
+                              if (window.innerWidth >= 768 || event.pointerType !== 'touch') return;
+                              if (mobileLongPressTimerRef.current) {
+                                clearTimeout(mobileLongPressTimerRef.current);
+                                mobileLongPressTimerRef.current = null;
+                              }
+                              mobileLongPressStartRef.current = null;
+                              closeMobileInventoryDescription();
+                            }}
+                            onPointerCancel={(event) => {
+                              if (window.innerWidth >= 768 || event.pointerType !== 'touch') return;
+                              if (mobileLongPressTimerRef.current) {
+                                clearTimeout(mobileLongPressTimerRef.current);
+                                mobileLongPressTimerRef.current = null;
+                              }
+                              mobileLongPressStartRef.current = null;
+                              mobileLongPressMovedRef.current = true;
+                              closeMobileInventoryDescription();
+                            }}
+                            onContextMenu={(event) => {
+                              if (window.innerWidth < 768) event.preventDefault();
+                            }}
                             style={{ width: trackConfig.itemW, height: trackConfig.itemW }}
                             className={`group relative flex flex-col items-center justify-center rounded-2xl transition-all shrink-0 hover:brightness-125 overflow-hidden ${cardStyle}`}>
                             
@@ -1460,7 +1971,7 @@ useEffect(() => {
                               {count}
                             </div>
                             
-                            <div className="absolute bottom-0 left-0 w-full bg-[#060b18]/90 py-1.5 px-1 translate-y-full group-hover:translate-y-0 transition-transform duration-300 z-20 border-t border-white/10">
+                            <div className="absolute bottom-0 left-0 w-full bg-[#060b18]/90 py-1.5 px-1 translate-y-full md:group-hover:translate-y-0 transition-transform duration-300 z-20 border-t border-white/10">
                               <span className="text-[9px] md:text-[10px] font-bold text-white text-center truncate block w-full drop-shadow-md">{meta.name}</span>
                             </div>
                           </button>
@@ -1523,12 +2034,22 @@ useEffect(() => {
       {selectedTicket && (
         <div className="absolute inset-0 z-[100] flex items-center justify-center p-4 pointer-events-auto" style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)' }}>
           <TicketUseModal 
-            profile={profile} 
             itemMeta={selectedTicket} 
             onClose={() => setSelectedTicket(null)} 
-            onUse={() => {
-              // 🚨 추후 DB 연동 시 이 자리에서 인벤토리 티켓 삭감 및 렌더링 갱신 수행
+            onUse={async () => {
+              const { data, error } = await supabase.rpc('use_studio_ticket', {
+                p_item_key: selectedTicket.id,
+              });
+
+              if (error) throw new Error(error.message);
+
+              const latestInventory = deepParse(data);
+              setInventory(latestInventory);
+              sendToGodot('UPDATE_INVENTORY', {
+                inventory_data: JSON.stringify(latestInventory),
+              });
               setSelectedTicket(null);
+              showTicketNotification('신청이 접수되었습니다.');
             }} 
           />
         </div>

@@ -1,29 +1,35 @@
 // src/mystudio/TicketUseModal.tsx
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { X, Send } from 'lucide-react';
-import type { Profile } from '../lib/supabase';
+import type { StudioAsset } from './studioAssets';
 
 export function TicketUseModal({ 
-  profile, 
   itemMeta, 
   onClose,
   onUse 
 }: { 
-  profile: Profile, 
-  itemMeta: any, 
+  itemMeta: Pick<StudioAsset, 'id' | 'name' | 'icon'>,
   onClose: () => void,
-  onUse: () => void 
+  onUse: () => Promise<void>
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const handleUse = async () => {
+    if (isSubmitting) return;
+
     setIsSubmitting(true);
-    // 🚨 추후 DB 연동 코드가 들어갈 자리입니다.
-    setTimeout(() => {
-      alert('DB 연동 대기 중: 관리자 전송 로직이 구현되지 않았습니다.');
+    setErrorMessage('');
+
+    try {
+      await onUse();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : '신청 처리 중 오류가 발생했습니다.'
+      );
+    } finally {
       setIsSubmitting(false);
-      onUse(); // 테스트용 닫기
-    }, 1000);
+    }
   };
 
   return (
@@ -53,6 +59,12 @@ export function TicketUseModal({
           )}
         </ul>
       </div>
+
+      {errorMessage && (
+        <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-xs font-medium text-red-300">
+          {errorMessage}
+        </div>
+      )}
 
       <button 
         onClick={handleUse} 
