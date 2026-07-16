@@ -109,6 +109,23 @@ function MusicPlayer({ url, muted, onToggleMute, showHud }: {
   const audioRef = useRef<HTMLAudioElement>(null);
   const fadeInterval = useRef<NodeJS.Timeout | null>(null);
 
+  const handleToggleMute = async () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    if (muted) {
+      try {
+        await audio.play();
+      } catch (error) {
+        console.log('Safari audio playback failed', error);
+      }
+    } else {
+      audio.pause();
+    }
+
+    onToggleMute();
+  };
+
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -144,7 +161,7 @@ function MusicPlayer({ url, muted, onToggleMute, showHud }: {
     <>
       <audio ref={audioRef} src={url} loop preload="auto" />
       <div className={`transition-all duration-300 pointer-events-auto ${showHud ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-        <button onClick={onToggleMute}
+        <button type="button" onClick={handleToggleMute}
           className="w-7 h-7 md:w-8 md:h-8 rounded-lg flex items-center justify-center transition-all"
           style={{ background:'rgba(10,6,20,.55)', border:'1px solid rgba(255,255,255,.08)',
                    color: muted ? 'rgba(255,255,255,.6)' : '#f9c76d', backdropFilter:'blur(8px)' }}
@@ -431,6 +448,8 @@ export function MyStudio({ profile, isActive = true }: { profile: Profile, isAct
 
   const godotFrameRef = useRef<HTMLIFrameElement>(null);
   const containerRef = useRef<HTMLDivElement>(null); 
+  const fallbackFullscreenRef = useRef(false);
+  const fallbackStyleRef = useRef<{ container: string; bodyOverflow: string } | null>(null);
   const hasSentInitialRoomSwitch = useRef(false);
 
   const [isEditingName, setIsEditingName] = useState(false);
@@ -894,19 +913,95 @@ useEffect(() => {
   useEffect(() => { setMuted(!isActive); }, [isActive]);
   useEffect(() => { setTrackIdx(0); }, [playlists.length]);
 
+  const exitFallbackFullscreen = useCallback(() => {
+    if (!fallbackFullscreenRef.current) return;
+
+    const savedStyle = fallbackStyleRef.current;
+    if (containerRef.current && savedStyle) {
+      containerRef.current.style.cssText = savedStyle.container;
+    }
+    if (savedStyle) document.body.style.overflow = savedStyle.bodyOverflow;
+
+    fallbackFullscreenRef.current = false;
+    fallbackStyleRef.current = null;
+    setFull(false);
+  }, []);
+
+  const enterFallbackFullscreen = () => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    fallbackStyleRef.current = {
+      container: container.style.cssText,
+      bodyOverflow: document.body.style.overflow,
+    };
+    fallbackFullscreenRef.current = true;
+    document.body.style.overflow = 'hidden';
+    Object.assign(container.style, {
+      position: 'fixed',
+      inset: '0',
+      width: '100vw',
+      height: '100dvh',
+      zIndex: '2147483647',
+    });
+    setFull(true);
+
+    requestAnimationFrame(() => {
+      if (!fallbackFullscreenRef.current || !containerRef.current) return;
+      containerRef.current.style.width = '100vw';
+      containerRef.current.style.height = '100dvh';
+    });
+  };
+
   const toggleFullscreen = async () => {
-    if (!document.fullscreenElement) {
-      if (containerRef.current?.requestFullscreen) await containerRef.current.requestFullscreen();
+    const webkitDocument = document as Document & {
+      webkitFullscreenElement?: Element | null;
+      webkitExitFullscreen?: () => Promise<void> | void;
+    };
+    const container = containerRef.current as (HTMLDivElement & {
+      webkitRequestFullscreen?: () => Promise<void> | void;
+    }) | null;
+
+    if (fallbackFullscreenRef.current) {
+      exitFallbackFullscreen();
+    } else if (!document.fullscreenElement && !webkitDocument.webkitFullscreenElement) {
+      if (!container) return;
+
+      if (container.requestFullscreen) {
+        try {
+          await container.requestFullscreen();
+          return;
+        } catch { /* Try the Safari-prefixed API or fallback below. */ }
+      }
+
+      if (container.webkitRequestFullscreen) {
+        try {
+          await container.webkitRequestFullscreen();
+          return;
+        } catch { /* Use the visual fallback below. */ }
+      }
+
+      enterFallbackFullscreen();
     } else {
       if (document.exitFullscreen) await document.exitFullscreen();
+      else if (webkitDocument.webkitExitFullscreen) await webkitDocument.webkitExitFullscreen();
     }
   };
 
   useEffect(() => {
-    const handleFullscreenChange = () => setFull(!!document.fullscreenElement);
+    const webkitDocument = document as Document & { webkitFullscreenElement?: Element | null };
+    const handleFullscreenChange = () => {
+      if (fallbackFullscreenRef.current) return;
+      setFull(!!document.fullscreenElement || !!webkitDocument.webkitFullscreenElement);
+    };
     document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
-  }, []);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      exitFallbackFullscreen();
+    };
+  }, [exitFallbackFullscreen]);
 
   const toggleEditMode = () => {
     const nextMode = !isEditMode;

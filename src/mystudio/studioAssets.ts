@@ -56,6 +56,10 @@ export const STUDIO_ASSETS: StudioAsset[] = [
   { id: 'gibson001', name: '깁슨 es-335 스튜디오', category: 'instrument', price: 20, description: '프리미엄 세미할로우 일렉 기타', icon: '🎸', tag: '', obtain: ['shop', 'gacha'], grade: 'epic' },
   { id: 'gibson003', name: '깁슨 SG 스탠다드', category: 'instrument', price: 20, description: '프리미엄 일렉 기타', icon: '🎸', tag: '', obtain: ['shop', 'gacha'], grade: 'epic' },
   { id: 'prs001', name: 'PRS SE 마크홀콤 시그니처', category: 'instrument', price: 20, description: '마크홀콤 시그니처 프리미엄 일렉 기타', icon: '🎸', tag: '', obtain: ['shop', 'gacha'], grade: 'epic' },
+  { id: 'pianochair003', name: '하얀 피아노 의자', category: 'furniture', price: 0, description: '프리미엄 피아노 의자', icon: '🪑', tag: '', obtain: ['gacha'], grade: 'epic' },
+  { id: 'rug001', name: '카페트', category: 'furniture', price: 0, description: '바닥에 까는 카페트', icon: '🟫', tag: '', obtain: ['gacha'], grade: 'epic' },
+  { id: 'statue', name: '석상', category: 'furniture', price: 0, description: '다비드 흉상', icon: '🗿', tag: '', obtain: ['gacha'], grade: 'epic' },
+  { id: 'art', name: '예술작품', category: 'furniture', price: 0, description: '예술작품', icon: '🖼️', tag: '', obtain: ['gacha'], grade: 'epic' },
 
   { id: 'sofa001', name: '가죽 소파', category: 'furniture', price: 10, description: '편안한 휴식을 제공하는 가죽 소파', icon: '🛋️', tag: '', obtain: ['shop', 'gacha'], grade: 'rare' },
   { id: 'sofa002', name: '소파', category: 'furniture', price: 10, description: '편안한 휴식을 제공하는 소파', icon: '🛋️', tag: '', obtain: ['shop', 'gacha'], grade: 'rare' },
@@ -82,14 +86,17 @@ export const STUDIO_ASSETS: StudioAsset[] = [
   { id: 'desk004', name: '화이트 데스크', category: 'furniture', price: 0, description: '화이트 데스크', icon: '🪑', tag: '', obtain: ['gacha'], grade: 'rare' },
   { id: 'presonusl', name: '프리소너스 에리스 3.5 L', category: 'instrument', price: 0, description: '모니터 스피커 왼쪽', icon: '🎚️', tag: '', obtain: ['gacha'], grade: 'rare' },
   { id: 'presonusr', name: '프리소너스 에리스 3.5 R', category: 'instrument', price: 0, description: '모니터 스피커 오른쪽', icon: '🎚️', tag: '', obtain: ['gacha'], grade: 'rare' },
+  { id: 'sofa003', name: '1인용 갈색 소파', category: 'furniture', price: 0, description: '편안한 소파', icon: '🛋️', tag: '', obtain: ['gacha'], grade: 'rare' },
+  { id: 'sofa004', name: '갈색 소파', category: 'furniture', price: 0, description: '편안한 소파', icon: '🛋️', tag: '', obtain: ['gacha'], grade: 'rare' },
+  { id: 'pedestal', name: '받침대', category: 'furniture', price: 0, description: '예술작품 받침대', icon: '🏛️', tag: '', obtain: ['gacha'], grade: 'rare' },
   
   { id: 'acousticguitar002', name: '야마하 F 310', category: 'instrument', price: 4, description: '양산형 어쿠스틱 기타', icon: '🎸', tag: '', obtain: ['shop'], grade: 'common' },
   { id: 'keystand', name: '키보드 스탠드', category: 'instrument', price: 2, description: '키보드를 지지하는 스탠드', icon: '🎹', tag: '', obtain: ['shop'], grade: 'common' },
   { id: 'squier001', name: '스콰이어 스탠다드 스트랫', category: 'instrument', price: 4, description: '양산형 일렉트릭 기타', icon: '🎸', tag: '', obtain: ['shop'], grade: 'common' },
   { id: 'stool001', name: '작은 의자', category: 'furniture', price: 2, description: '작은 일반 의자', icon: '🪑', tag: '', obtain: ['shop'], grade: 'common' },
   { id: 'chair001', name: '의자', category: 'furniture', price: 2, description: '작은 일반 의자', icon: '🪑', tag: '', obtain: ['shop'], grade: 'common' },
-  { id: 'rug001', name: '하얀 카페트', category: 'furniture', price: 4, description: '바닥에 까는 심플한 카페트', icon: ' ', tag: '', obtain: ['shop'], grade: 'common' },
   { id: 'lamp001', name: '스탠드 조명', category: 'furniture', price: 2, description: '스탠드 조명', icon: '💡', tag: '', obtain: ['shop'], grade: 'common' },
   { id: 'speakerstand001', name: '스피커 스탠드', category: 'furniture', price: 2, description: '스피커 스탠드', icon: '🎚️', tag: '', obtain: ['shop'], grade: 'common' },
+  { id: 'table001', name: '테이블', category: 'furniture', price: 2, description: '테이블', icon: '', tag: '', obtain: ['shop'], grade: 'common' },
   { id: 'pianochair001', name: '검정색 피아노 의자', category: 'furniture', price: 3, description: '검정색 피아노 의자', icon: '🪑', tag: '', obtain: ['shop'], grade: 'common' }
 ];
