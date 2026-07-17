@@ -25,6 +25,7 @@ const TASK_DISCOUNT = 20000;
 export function StudentDashboard() {
   const { profile, signOut, refreshProfile } = useAuth();
   const [tab, setTab] = useState<Tab>('home');
+  const [studioMounted, setStudioMounted] = useState(false);
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [activeModal, setActiveModal] = useState<'registration' | 'refund' | 'extension' | null>(null);
   const [futureBookings, setFutureBookings] = useState(0);
@@ -139,7 +140,12 @@ export function StudentDashboard() {
             {TABS.map(({ key, label, icon: Icon }) => (
               <button
                 key={key}
-                onClick={() => { setTab(key as Tab); setSelectedGameId(null); }}
+                onClick={() => {
+                  const nextTab = key as Tab;
+                  if (nextTab === 'ranking') setStudioMounted(true);
+                  setTab(nextTab);
+                  setSelectedGameId(null);
+                }}
                 className={`flex items-center gap-1.5 px-4 py-3.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors
                   ${tab === key
                     ? 'border-[#22d3ee] text-[#22d3ee]'
@@ -285,9 +291,11 @@ export function StudentDashboard() {
       )}
 
       {/* 🚨 2. MyStudio (좀비 영역) - 절대 지워지지 않고 투명망토만 씌움 */}
-      <div className={tab === 'ranking' ? 'flex-1 block' : 'hidden'}>
-        <MyStudio profile={profile} isActive={tab === 'ranking'} />
-      </div>
+      {studioMounted && (
+        <div className={tab === 'ranking' ? 'flex-1 block' : 'hidden'}>
+          <MyStudio profile={profile} isActive={tab === 'ranking'} />
+        </div>
+      )}
 
       {/* 모달들 */}
       <Modal open={activeModal === 'registration'} onClose={() => setActiveModal(null)} title="재등록 신청" size="lg" theme="dark">
