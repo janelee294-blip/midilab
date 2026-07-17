@@ -217,11 +217,11 @@ export function StudentInventoryManager({ studentId }: Props) {
                       </div>
                     </div>
 
-                    <div className="flex gap-2">
+                    <div className="flex min-w-0 gap-2">
                       <select
                         value={selectedItemId}
                         onChange={(e) => setSelectedItemId(e.target.value)}
-                        className="flex-1 px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 bg-white"
+                        className="min-w-0 flex-1 px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 bg-white"
                       >
                         <option value="">아이템 선택...</option>
                         {filteredAssets.map(asset => (
@@ -235,9 +235,9 @@ export function StudentInventoryManager({ studentId }: Props) {
                         min="1"
                         value={qty}
                         onChange={(e) => setQty(Number(e.target.value))}
-                        className="w-16 px-2 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 text-center bg-white shrink-0"
+                        className="w-16 min-w-14 shrink px-2 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 text-center bg-white"
                       />
-                      <Button variant="primary" type="button" loading={saving} onClick={handleGrant}>
+                      <Button className="min-w-[5rem] shrink-0 whitespace-nowrap" variant="primary" type="button" loading={saving} onClick={handleGrant}>
                         <Plus size={14} /> 지급
                       </Button>
                     </div>
