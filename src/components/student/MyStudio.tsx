@@ -103,8 +103,8 @@ function usePlaylists(theme: EnvTheme): Playlist[] {
   return list.filter(p => p.season_tag === 'all' || p.season_tag === theme);
 }
 
-function MusicPlayer({ url, muted, onToggleMute, showHud }: {
-  url: string; muted: boolean; onToggleMute: () => void; showHud: boolean;
+function MusicPlayer({ url, muted, forceMuted, onToggleMute, showHud }: {
+  url: string; muted: boolean; forceMuted: boolean; onToggleMute: () => void; showHud: boolean;
 }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const fadeInterval = useRef<NodeJS.Timeout | null>(null);
@@ -125,6 +125,18 @@ function MusicPlayer({ url, muted, onToggleMute, showHud }: {
 
     onToggleMute();
   };
+
+  useEffect(() => {
+    if (!forceMuted) return;
+
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    audio.muted = true;
+    return () => {
+      audio.muted = muted;
+    };
+  }, [forceMuted, muted]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -363,6 +375,14 @@ export function normalizeRoomLayoutForPreview(raw: unknown): RoomLayoutPreviewRe
 }
 
 export function MyStudio({ profile, isActive = true }: { profile: Profile, isActive?: boolean }) {
+  const isIOSSafari = typeof navigator !== 'undefined'
+    && (
+      /iPad|iPhone|iPod/.test(navigator.userAgent)
+      || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+    )
+    && /WebKit/.test(navigator.userAgent)
+    && !/CriOS|FxiOS|EdgiOS|OPiOS/.test(navigator.userAgent);
+
   const [unlockedRooms, setUnlockedRooms] = useState<string[]>(
     profile.unlocked_rooms?.length ? profile.unlocked_rooms : ['room_lv1']
   );
@@ -910,7 +930,10 @@ useEffect(() => {
     sendEnvUpdate(env);
   }, [env, envLoaded, isGodotLoaded, sendEnvUpdate]);
 
-  useEffect(() => { setMuted(!isActive); }, [isActive]);
+  useEffect(() => {
+    if (isIOSSafari) return;
+    setMuted(!isActive);
+  }, [isActive, isIOSSafari]);
   useEffect(() => { setTrackIdx(0); }, [playlists.length]);
 
   const exitFallbackFullscreen = useCallback(() => {
@@ -1511,7 +1534,7 @@ useEffect(() => {
         
         <div className={`absolute right-2 md:right-5 w-auto z-50 flex items-center gap-2 pointer-events-none transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]
           ${isEditMode && isInvOpen && showHud ? (isMobile ? 'bottom-4 translate-y-[-128px]' : 'bottom-5 translate-y-[-180px]') : 'bottom-4 md:bottom-5 translate-y-0'}`}>
-          <MusicPlayer url={playlists[trackIdx % playlists.length]?.url ?? ''} muted={muted} onToggleMute={() => setMuted(m=>!m)} showHud={showHud} />
+          <MusicPlayer url={playlists[trackIdx % playlists.length]?.url ?? ''} muted={muted} forceMuted={isIOSSafari && !isActive} onToggleMute={() => setMuted(m=>!m)} showHud={showHud} />
         </div>
 
         <div className={`absolute top-4 right-3 md:top-5 md:right-5 flex flex-col items-end gap-2 md:gap-2.5 transition-opacity duration-300 ${showHud ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>

@@ -68,7 +68,7 @@ export const STUDIO_ASSETS: StudioAsset[] = [
   { id: 'plant003', name: '몬스테라', category: 'furniture', price: 0, description: '몬스테라는 뛰어난 실내 습도 조절과 공기 정화 효과(포름알데히드, 벤젠 제거 및 미세먼지 흡착)를 제공', icon: '🌿', tag: '', obtain: ['gacha'], grade: 'rare' },
   { id: 'desk003', name: '프로듀서 책상', category: 'furniture', price: 0, description: '집중력을 높여주는 작업용 책상', icon: '🪑', tag: '', obtain: ['gacha'], grade: 'rare' },
   { id: 'monitor001', name: 'LG 모니터', category: 'furniture', price: 0, description: '일반 디스플레이 모니터', icon: '🖥️', tag: '', obtain: ['gacha'], grade: 'rare' },
-  { id: 'light002', name: '스포트라이트 조명', category: 'furniture', price: 0, description: '밝은 스포트라이트 조명', icon: '🔦', tag: '', obtain: ['gacha'], grade: 'rare' },
+  { id: 'lamp002', name: '스포트라이트 조명', category: 'furniture', price: 0, description: '밝은 스포트라이트 조명', icon: '🔦', tag: '', obtain: ['gacha'], grade: 'rare' },
   { id: 'piano003', name: '야마하 피아노', category: 'instrument', price: 10, description: '프리미엄 라이브러리 피아노', icon: '🎹', tag: '', obtain: ['shop', 'gacha'], grade: 'rare' },
   { id: 'yamaha001', name: '야마하 DGX 660', category: 'instrument', price: 10, description: '디지털 피아노', icon: '🎹', tag: '', obtain: ['shop', 'gacha'], grade: 'rare' },
   { id: 'epiphone001', name: '에피폰 카지노', category: 'instrument', price: 8, description: '양산형 세미할로우 일렉 기타', icon: '🎸', tag: '', obtain: ['shop', 'gacha'], grade: 'rare' },

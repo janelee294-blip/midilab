@@ -124,6 +124,7 @@ const engine = new Engine(GODOT_CONFIG);
 
 	let initializing = true;
 	let statusMode = '';
+	let lastProgressPercent = -1;
 
 	function setStatusMode(mode) {
 		if (statusMode === mode || !initializing) {
@@ -203,6 +204,22 @@ const engine = new Engine(GODOT_CONFIG);
 		setStatusMode('progress');
 		engine.startGame({
 			'onProgress': function (current, total) {
+				if (current > 0 && total === 0) {
+					console.log('Godot load progress:', { current, total });
+				}
+				if (total > 0) {
+					const percent = Math.round((current / total) * 100);
+					if (percent !== lastProgressPercent) {
+						lastProgressPercent = percent;
+						window.parent.postMessage({
+							source: 'godot',
+							type: 'LOAD_PROGRESS',
+							current,
+							total,
+							percent,
+						}, window.location.origin);
+					}
+				}
 				if (current > 0 && total > 0) {
 					statusProgress.value = current;
 					statusProgress.max = total;
@@ -213,6 +230,10 @@ const engine = new Engine(GODOT_CONFIG);
 			},
 		}).then(() => {
 			setStatusMode('hidden');
+			window.parent.postMessage({
+				source: 'godot',
+				type: 'LOAD_COMPLETE',
+			}, window.location.origin);
 		}, displayFailureNotice);
 	}
 }());
