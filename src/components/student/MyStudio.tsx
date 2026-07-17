@@ -416,6 +416,7 @@ export function MyStudio({ profile, isActive = true }: { profile: Profile, isAct
   const [isGodotLoaded, setIsGodotLoaded] = useState(false);
   const [godotLoadProgress, setGodotLoadProgress] = useState({ percent: 0, current: 0, total: 0 });
   const [initialRoomSyncDone, setInitialRoomSyncDone] = useState(false);
+  const [godotLoadError, setGodotLoadError] = useState<{ title: string; message: string } | null>(null);
   const [isVisiting, setIsVisiting] = useState(false);
   const [todayVisitCount, setTodayVisitCount] = useState(0);
   const [totalVisitCount, setTotalVisitCount] = useState(0);
@@ -471,6 +472,21 @@ export function MyStudio({ profile, isActive = true }: { profile: Profile, isAct
   const fallbackFullscreenRef = useRef(false);
   const fallbackStyleRef = useRef<{ container: string; bodyOverflow: string } | null>(null);
   const hasSentInitialRoomSwitch = useRef(false);
+  const godotReadyRef = useRef(false);
+  const godotReadyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearGodotReadyTimeout = useCallback(() => {
+    if (godotReadyTimeoutRef.current) {
+      clearTimeout(godotReadyTimeoutRef.current);
+      godotReadyTimeoutRef.current = null;
+    }
+  }, []);
+
+  const showGodotLoadError = useCallback((title: string, message: string) => {
+    clearGodotReadyTimeout();
+    console.error(`[MyStudio] ${title}: ${message}`);
+    setGodotLoadError({ title, message });
+  }, [clearGodotReadyTimeout]);
 
   const [isEditingName, setIsEditingName] = useState(false);
   const [studioName, setStudioName] = useState('');
@@ -606,13 +622,32 @@ useEffect(() => {
   }, [profile.id, unlockedRooms]);
 
   const loadStudioData = useCallback(async (shouldSendInitialRoomSwitch = false) => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('inventory, room_layout, studio_name, unlocked_rooms, default_room_id')
-      .eq('id', profile.id)
-      .single();
+    let data;
+    let error;
+    try {
+      const result = await supabase
+        .from('profiles')
+        .select('inventory, room_layout, studio_name, unlocked_rooms, default_room_id')
+        .eq('id', profile.id)
+        .single();
+      data = result.data;
+      error = result.error;
+    } catch (loadError) {
+      console.error('[MyStudio] Supabase studio data request threw an error.', loadError);
+      const message = loadError instanceof Error ? loadError.message : String(loadError);
+      if (shouldSendInitialRoomSwitch) {
+        showGodotLoadError('스튜디오 데이터 로드 실패', message);
+      }
+      return;
+    }
 
-    if (error) return;
+    if (error) {
+      console.error('[MyStudio] Supabase studio data request failed.', error);
+      if (shouldSendInitialRoomSwitch) {
+        showGodotLoadError('스튜디오 데이터 로드 실패', error.message);
+      }
+      return;
+    }
 
     if (data) {
       const safeInv = deepParse(data.inventory);
@@ -665,7 +700,7 @@ useEffect(() => {
         });
       }
     }
-  }, [profile.id, profile.full_name, sendToGodot]);
+  }, [profile.id, profile.full_name, sendToGodot, showGodotLoadError]);
 
   const loadVisitCounts = useCallback(async () => {
     const now = new Date();
@@ -791,9 +826,23 @@ useEffect(() => {
   }, [profile.id, sendToGodot]);
 
   const handleIframeLoad = () => {
+    clearGodotReadyTimeout();
+    godotReadyRef.current = false;
     setIsGodotLoaded(false);
+    setInitialRoomSyncDone(false);
+    setGodotLoadError(null);
     setGodotLoadProgress({ percent: 0, current: 0, total: 0 });
     lastSentEnvKeyRef.current = null;
+  };
+
+  const handleGodotRetry = () => {
+    clearGodotReadyTimeout();
+    godotReadyRef.current = false;
+    setIsGodotLoaded(false);
+    setInitialRoomSyncDone(false);
+    setGodotLoadError(null);
+    setGodotLoadProgress({ percent: 0, current: 0, total: 0 });
+    godotFrameRef.current?.contentWindow?.location.reload();
   };
 
   useEffect(() => {
@@ -814,8 +863,34 @@ useEffect(() => {
         case 'LOAD_COMPLETE':
           if (event.data.source !== 'godot') break;
           setGodotLoadProgress(current => ({ ...current, percent: 100 }));
+          if (!godotReadyRef.current) {
+            clearGodotReadyTimeout();
+            godotReadyTimeoutRef.current = setTimeout(() => {
+              showGodotLoadError(
+                '게임 초기화 실패',
+                '다운로드는 완료됐지만 게임이 준비 신호를 보내지 못했습니다.'
+              );
+            }, 30_000);
+          }
           break;
+        case 'LOAD_FAILED': {
+          if (event.data.source !== 'godot') break;
+          if (godotReadyRef.current) break;
+          const failureStage = typeof event.data.stage === 'string' ? event.data.stage : 'unknown';
+          const failureMessage = typeof event.data.message === 'string'
+            ? event.data.message
+            : '알 수 없는 오류가 발생했습니다.';
+          showGodotLoadError(
+            '게임 로드 실패',
+            `[${failureStage}] ${failureMessage}`
+          );
+          break;
+        }
         case 'GODOT_READY':
+          godotReadyRef.current = true;
+          clearGodotReadyTimeout();
+          setGodotLoadError(null);
+          setIsGodotLoaded(true);
           loadStudioData(true);
           break;
         case 'OPEN_SHOP': setIsShopOpen(true); break;
@@ -902,6 +977,9 @@ useEffect(() => {
     
     window.addEventListener('message', handleGodotMessage);
     (window as any).onGodotReady = () => {
+      godotReadyRef.current = true;
+      clearGodotReadyTimeout();
+      setGodotLoadError(null);
       setIsGodotLoaded(true);
       loadStudioData(true);
     };
@@ -909,8 +987,9 @@ useEffect(() => {
     return () => {
       window.removeEventListener('message', handleGodotMessage);
       delete (window as any).onGodotReady;
+      clearGodotReadyTimeout();
     };
-  }, [currentRoomId, isVisiting, loadStudioData, profile.id, roomLayoutByRoom]);
+  }, [clearGodotReadyTimeout, currentRoomId, isVisiting, loadStudioData, profile.id, roomLayoutByRoom, showGodotLoadError]);
 
   const sendEnvUpdate = useCallback((nextEnv: StudioEnv) => {
     const envKey = JSON.stringify({
@@ -1375,15 +1454,33 @@ useEffect(() => {
           position: 'absolute',
           inset: 0,
           border: 'none',
-          pointerEvents: initialRoomSyncDone ? 'auto' : 'none',
-          opacity: initialRoomSyncDone ? 1 : 0,
+          pointerEvents: initialRoomSyncDone && !godotLoadError ? 'auto' : 'none',
+          opacity: initialRoomSyncDone && !godotLoadError ? 1 : 0,
           transition: 'opacity 150ms ease-out',
         }}
       />
 
-      {!initialRoomSyncDone && (
+      {(!initialRoomSyncDone || godotLoadError) && (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-[#060b18]/90 px-4 backdrop-blur-md pointer-events-auto">
           <div className="flex max-w-sm flex-col items-center rounded-xl border border-white/10 bg-[#0b101e]/90 px-7 py-6 text-center shadow-[0_18px_60px_rgba(0,0,0,0.55)]">
+            {godotLoadError ? (
+              <>
+                <p className="text-sm font-bold text-white md:text-base">
+                  {godotLoadError.title}
+                </p>
+                <p className="mt-2 break-words text-xs text-red-200/80">
+                  {godotLoadError.message}
+                </p>
+                <button
+                  type="button"
+                  onClick={handleGodotRetry}
+                  className="mt-5 rounded-lg border border-white/15 bg-white/10 px-5 py-2 text-sm font-bold text-white transition-colors hover:bg-white/15"
+                >
+                  다시 시도
+                </button>
+              </>
+            ) : (
+              <>
             <div
               className="mb-4 h-7 w-7 animate-spin rounded-full border-2 border-white/15 border-t-[#22d3ee]"
               role="status"
@@ -1417,6 +1514,8 @@ useEffect(() => {
                 </p>
               )}
             </div>
+              </>
+            )}
           </div>
         </div>
       )}

@@ -126,6 +126,43 @@ const engine = new Engine(GODOT_CONFIG);
 	let statusMode = '';
 	let lastProgressPercent = -1;
 
+	function getErrorMessage(err) {
+		if (err instanceof Error) {
+			return err.message;
+		}
+		if (typeof err === 'string') {
+			return err;
+		}
+		try {
+			return JSON.stringify(err) || String(err);
+		} catch (_error) {
+			return 'An unknown error occurred.';
+		}
+	}
+
+	function reportLoadFailure(stage, err) {
+		const message = getErrorMessage(err);
+		console.error(`[MyStudio] ${stage}:`, err);
+		window.parent.postMessage({
+			source: 'godot',
+			type: 'LOAD_FAILED',
+			stage,
+			message,
+		}, window.location.origin);
+	}
+
+	window.addEventListener('error', (event) => {
+		reportLoadFailure('javascript_error', event.error || event.message);
+	});
+
+	window.addEventListener('unhandledrejection', (event) => {
+		reportLoadFailure('unhandled_rejection', event.reason);
+	});
+
+	document.getElementById('canvas').addEventListener('webglcontextlost', () => {
+		reportLoadFailure('webgl_context_lost', 'WebGL context lost.');
+	});
+
 	function setStatusMode(mode) {
 		if (statusMode === mode || !initializing) {
 			return;
@@ -152,8 +189,8 @@ const engine = new Engine(GODOT_CONFIG);
 		});
 	}
 
-	function displayFailureNotice(err) {
-		console.error(err);
+	function displayFailureNotice(err, stage = 'engine_start_failed') {
+		reportLoadFailure(stage, err);
 		if (err instanceof Error) {
 			setStatusNotice(err.message);
 		} else if (typeof err === 'string') {
@@ -215,7 +252,7 @@ const engine = new Engine(GODOT_CONFIG);
 		} else {
 			// Display the message as usual
 			const missingMsg = 'Error\nThe following features required to run Godot projects on the Web are missing:\n';
-			displayFailureNotice(missingMsg + missing.join('\n'));
+			displayFailureNotice(missingMsg + missing.join('\n'), 'missing_features');
 		}
 	} else {
 		setStatusMode('progress');
@@ -251,7 +288,7 @@ const engine = new Engine(GODOT_CONFIG);
 				source: 'godot',
 				type: 'LOAD_COMPLETE',
 			}, window.location.origin);
-		}, displayFailureNotice));
+		}, (err) => displayFailureNotice(err, 'engine_start_failed')));
 	}
 }());
 		</script>
