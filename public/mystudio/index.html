@@ -165,6 +165,23 @@ const engine = new Engine(GODOT_CONFIG);
 		initializing = false;
 	}
 
+	function preparePckCacheServiceWorker() {
+		if (!('serviceWorker' in navigator)) {
+			return Promise.resolve();
+		}
+		const registrationReady = navigator.serviceWorker.register('/mystudio/pck-cache-sw.js', {
+			scope: '/mystudio/',
+		}).then(() => navigator.serviceWorker.ready);
+		return Promise.race([
+			registrationReady,
+			new Promise((resolve) => {
+				setTimeout(resolve, 2000);
+			}),
+		]).catch((err) => {
+			console.warn('PCK cache service worker registration failed:', err);
+		});
+	}
+
 	const missing = Engine.getMissingFeatures({
 		threads: GODOT_THREADS_ENABLED,
 	});
@@ -202,7 +219,7 @@ const engine = new Engine(GODOT_CONFIG);
 		}
 	} else {
 		setStatusMode('progress');
-		engine.startGame({
+		preparePckCacheServiceWorker().then(() => engine.startGame({
 			'onProgress': function (current, total) {
 				if (current > 0 && total === 0) {
 					console.log('Godot load progress:', { current, total });
@@ -234,7 +251,7 @@ const engine = new Engine(GODOT_CONFIG);
 				source: 'godot',
 				type: 'LOAD_COMPLETE',
 			}, window.location.origin);
-		}, displayFailureNotice);
+		}, displayFailureNotice));
 	}
 }());
 		</script>
