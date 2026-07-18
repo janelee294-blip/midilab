@@ -1,7 +1,11 @@
 const PCK_URL = 'https://pub-d22a4db03f974aff80d669d3f1ef553e.r2.dev/%EC%9E%91%EC%97%85.pck';
 const PCK_SIZE = 249411976;
-const CACHE_NAME = 'pck-cache-mystudio-v3';
+const CACHE_NAME = 'pck-cache-mystudio-v4';
 const CACHE_PREFIX = 'pck-cache-';
+
+self.addEventListener('install', (event) => {
+	event.waitUntil(self.skipWaiting());
+});
 
 self.addEventListener('activate', (event) => {
 	event.waitUntil(
@@ -60,6 +64,15 @@ async function getPckResponse(request) {
 self.addEventListener('fetch', (event) => {
 	const { request } = event;
 	if (request.method !== 'GET' || request.url !== PCK_URL) {
+		return;
+	}
+
+	const ua = request.headers.get('user-agent') || '';
+	const isIOS = /iPhone|iPad|iPod/i.test(ua);
+	const isSafari = /Safari/i.test(ua)
+		&& !/CriOS|FxiOS|EdgiOS/i.test(ua);
+
+	if (isIOS && isSafari) {
 		return;
 	}
 
