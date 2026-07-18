@@ -151,12 +151,116 @@ const engine = new Engine(GODOT_CONFIG);
 		}, window.location.origin);
 	}
 
+	function safeSerialize(value) {
+		const seen = new WeakSet();
+		try {
+			return JSON.stringify(value, (_key, current) => {
+				if (typeof current === 'bigint') {
+					return `${current.toString()}n`;
+				}
+				if (typeof current === 'symbol' || typeof current === 'function') {
+					return String(current);
+				}
+				if (current && typeof current === 'object') {
+					if (seen.has(current)) {
+						return '[Circular]';
+					}
+					seen.add(current);
+				}
+				return current;
+			}) || safeToString(value);
+		} catch (serializationError) {
+			return `[Serialization failed: ${getErrorMessage(serializationError)}] ${safeToString(value)}`;
+		}
+	}
+
+	function safeToString(value) {
+		try {
+			return String(value);
+		} catch (_error) {
+			return '[Unstringifiable value]';
+		}
+	}
+
+	function getProperty(reason, key) {
+		try {
+			return reason?.[key] || '';
+		} catch (propertyError) {
+			return `[unavailable: ${getErrorMessage(propertyError)}]`;
+		}
+	}
+
+	function getEnumerableProperties(reason) {
+		const properties = {};
+		if (reason == null || (typeof reason !== 'object' && typeof reason !== 'function')) {
+			return properties;
+		}
+		try {
+			Object.keys(reason).forEach((key) => {
+				try {
+					properties[key] = reason[key];
+				} catch (propertyError) {
+					properties[key] = `[Property access failed: ${getErrorMessage(propertyError)}]`;
+				}
+			});
+		} catch (keysError) {
+			properties['[[Object.keys failed]]'] = getErrorMessage(keysError);
+		}
+		return properties;
+	}
+
+	function reportUnhandledRejection(reason) {
+		let constructorName = '';
+		let objectTag = '';
+		try {
+			constructorName = reason?.constructor?.name || '';
+		} catch (_error) {
+			constructorName = '[unavailable]';
+		}
+		try {
+			objectTag = Object.prototype.toString.call(reason);
+		} catch (_error) {
+			objectTag = '[object tag unavailable]';
+		}
+
+		const details = {
+			name: getProperty(reason, 'name'),
+			message: getProperty(reason, 'message'),
+			stack: getProperty(reason, 'stack'),
+			constructorName,
+			objectTag,
+			enumerableProperties: getEnumerableProperties(reason),
+		};
+		const serializedDetails = safeSerialize(details);
+		const summaryParts = [];
+		if (details.name) summaryParts.push(`name=${safeToString(details.name).slice(0, 120)}`);
+		if (details.message) summaryParts.push(`message=${safeToString(details.message).slice(0, 300)}`);
+		if (details.constructorName) summaryParts.push(`constructor=${safeToString(details.constructorName)}`);
+		if (details.objectTag) summaryParts.push(`tag=${safeToString(details.objectTag)}`);
+		if (details.stack) {
+			const compactStack = safeToString(details.stack).replace(/\s*\n\s*/g, ' <- ').slice(0, 500);
+			summaryParts.push(`stack=${compactStack}`);
+		}
+		if (!details.name && !details.message && !details.stack) {
+			summaryParts.push(`reason=${safeSerialize(reason).slice(0, 300)}`);
+		}
+		const message = summaryParts.join(' | ') || 'Unhandled promise rejection (no details available).';
+
+		console.error('[MyStudio] unhandled_rejection details:', serializedDetails, details, reason);
+		window.parent.postMessage({
+			source: 'godot',
+			type: 'LOAD_FAILED',
+			stage: 'unhandled_rejection',
+			message,
+		}, window.location.origin);
+	}
+
 	window.addEventListener('error', (event) => {
 		reportLoadFailure('javascript_error', event.error || event.message);
 	});
 
 	window.addEventListener('unhandledrejection', (event) => {
-		reportLoadFailure('unhandled_rejection', event.reason);
+		reportUnhandledRejection(event.reason);
 	});
 
 	document.getElementById('canvas').addEventListener('webglcontextlost', () => {

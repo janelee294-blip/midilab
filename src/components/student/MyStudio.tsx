@@ -1210,11 +1210,26 @@ useEffect(() => {
     };
   }, []);
 
-  const MAX_PAGE = 1; 
-  const TOTAL_SLOTS = trackConfig.visibleSlots * 2; 
+  const safeInv = deepParse(inventory);
+  const validKeys = Object.keys(safeInv).filter(key => {
+    const val = Number(safeInv[key]);
+    const meta = STUDIO_ASSETS.find(a => a.id.toLowerCase() === key.toLowerCase());
+    const isEtc = meta?.category === 'etc';
+    return !isNaN(val) && val > 0 && !isEtc;
+  });
+  const totalPages = Math.max(
+    1,
+    Math.ceil(validKeys.length / trackConfig.visibleSlots)
+  );
+  const maxPage = totalPages - 1;
+  const totalSlots = totalPages * trackConfig.visibleSlots;
+
+  useEffect(() => {
+    setInventoryPage((page) => Math.min(page, maxPage));
+  }, [maxPage]);
 
   const handlePrevPage = () => setInventoryPage((p) => Math.max(0, p - 1));
-  const handleNextPage = () => setInventoryPage((p) => Math.min(MAX_PAGE, p + 1));
+  const handleNextPage = () => setInventoryPage((p) => Math.min(maxPage, p + 1));
 
   const closeMobileInventoryDescription = useCallback(() => {
     if (mobileInventoryDescriptionEnterFrameRef.current !== null) {
@@ -2037,15 +2052,7 @@ useEffect(() => {
                    }}>
                 
                 {(() => {
-                  const safeInv = deepParse(inventory);
-                  const validKeys = Object.keys(safeInv).filter(key => {
-                    const val = Number(safeInv[key]);
-                    const meta = STUDIO_ASSETS.find(a => a.id.toLowerCase() === key.toLowerCase());
-                    const isEtc = meta?.category === 'etc';
-                    return !isNaN(val) && val > 0 && !isEtc;
-                  });
-
-                  const emptySlotsCount = Math.max(0, TOTAL_SLOTS - validKeys.length);
+                  const emptySlotsCount = Math.max(0, totalSlots - validKeys.length);
                   const emptySlots = Array(emptySlotsCount).fill(null);
 
                   return (
@@ -2255,7 +2262,7 @@ useEffect(() => {
             </div>
           </div>
 
-          <button onClick={handleNextPage} disabled={inventoryPage === MAX_PAGE}
+          <button onClick={handleNextPage} disabled={inventoryPage >= maxPage}
             className="z-30 w-8 h-8 md:w-10 md:h-10 rounded-full bg-[#060b18]/80 border border-white/20 text-white flex items-center justify-center hover:bg-white/10 hover:border-white/50 backdrop-blur-md transition-all shadow-[0_0_15px_rgba(0,0,0,0.5)] hover:scale-110 disabled:opacity-30 disabled:hover:scale-100 disabled:cursor-not-allowed shrink-0">
             <ChevronRight size={20} className="md:w-6 md:h-6 ml-0.5" />
           </button>
