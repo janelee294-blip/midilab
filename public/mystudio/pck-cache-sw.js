@@ -1,6 +1,6 @@
 const PCK_URL = 'https://pub-d22a4db03f974aff80d669d3f1ef553e.r2.dev/%EC%9E%91%EC%97%85.pck';
 const PCK_SIZE = 249411976;
-const CACHE_NAME = 'pck-cache-mystudio-v4';
+const CACHE_NAME = 'pck-cache-mystudio-v5';
 const CACHE_PREFIX = 'pck-cache-';
 
 self.addEventListener('install', (event) => {

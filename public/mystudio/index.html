@@ -111,9 +111,23 @@ body {
 
 		<script src="작업.js"></script>
 		<script>
-const PCK_URL = "https://pub-d22a4db03f974aff80d669d3f1ef553e.r2.dev/%EC%9E%91%EC%97%85.pck";
+function isIOSDevice() {
+	const ua = navigator.userAgent || '';
+	const classicIOS = /iPhone|iPad|iPod/i.test(ua);
+	const iPadDesktopMode = navigator.platform === 'MacIntel'
+		&& navigator.maxTouchPoints > 1;
+	return classicIOS || iPadDesktopMode;
+}
 
-const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":true,"executable":"작업","mainPack":PCK_URL,"experimentalVK":false,"fileSizes":{[PCK_URL]:249411976,"작업.wasm":35754592},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
+const DESKTOP_PCK_URL = "https://pub-d22a4db03f974aff80d669d3f1ef553e.r2.dev/%EC%9E%91%EC%97%85.pck";
+const MOBILE_PCK_URL = "https://pub-d22a4db03f974aff80d669d3f1ef553e.r2.dev/%EC%9E%91%EC%97%85-mobile.pck";
+const DESKTOP_PCK_SIZE = 249411976;
+const MOBILE_PCK_SIZE = 203505560;
+const IS_IOS_DEVICE = isIOSDevice();
+const PCK_URL = IS_IOS_DEVICE ? MOBILE_PCK_URL : DESKTOP_PCK_URL;
+const PCK_SIZE = IS_IOS_DEVICE ? MOBILE_PCK_SIZE : DESKTOP_PCK_SIZE;
+
+const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":true,"executable":"작업","mainPack":PCK_URL,"experimentalVK":false,"fileSizes":{[PCK_URL]:PCK_SIZE,"작업.wasm":35754592},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
 const GODOT_THREADS_ENABLED = false;
 const engine = new Engine(GODOT_CONFIG);
 
