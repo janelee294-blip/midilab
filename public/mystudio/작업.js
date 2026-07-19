@@ -109,12 +109,12 @@ const Features = {
 };
 
 const Preloader = /** @constructor */ function () { // eslint-disable-line no-unused-vars
-	function isIOSSafari() {
+	function isIOSDevice() {
 		const ua = navigator.userAgent || '';
-		const isIOS = /iPhone|iPad|iPod/i.test(ua);
-		const isSafari = /Safari/i.test(ua)
-			&& !/CriOS|FxiOS|EdgiOS/i.test(ua);
-		return isIOS && isSafari;
+		const classicIOS = /iPhone|iPad|iPod/i.test(ua);
+		const iPadDesktopMode = navigator.platform === 'MacIntel'
+			&& navigator.maxTouchPoints > 1;
+		return classicIOS || iPadDesktopMode;
 	}
 
 	function getTrackedResponse(response, load_status) {
@@ -154,10 +154,17 @@ const Preloader = /** @constructor */ function () { // eslint-disable-line no-un
 			if (!response.ok) {
 				return Promise.reject(new Error(`Failed loading file '${file}'`));
 			}
-			if (!raw && isIOSSafari()) {
+			if (isIOSDevice()) {
 				return response.arrayBuffer().then(function (buffer) {
 					tracker[file].loaded = buffer.byteLength;
 					tracker[file].done = true;
+					if (raw) {
+						return new Response(buffer, {
+							status: response.status,
+							statusText: response.statusText,
+							headers: response.headers,
+						});
+					}
 					return buffer;
 				});
 			}

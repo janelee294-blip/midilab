@@ -32,7 +32,7 @@ export const STUDIO_ASSETS: StudioAsset[] = [
   { id: 'membership_card', name: '미디랩 멤버십 카드', category: 'etc', price: 0, description: '가챠에서 소모되는 포인트 할인 10%', icon: '💳', tag: '', obtain: ['gacha'], grade: 'passive' },
   { id: 'ghost', name: '도박꾼의 영혼', category: 'etc', price: 0, description: '가챠에서 나온 보상을 두배로 받거나 다 잃거나', icon: '👻', tag: '', obtain: ['gacha'], grade: 'passive' },
 
-  { id: 'trophy', name: '우승 트로피', category: 'etc', price: 0, description: '블라인드 배틀 우승 트로피', icon: '🏆', tag: '', obtain: ['event'], grade: 'legendary' },
+  { id: 'trophy', name: '우승 트로피', category: 'furniture', price: 0, description: '블라인드 배틀 우승 트로피', icon: '🏆', tag: '', obtain: ['event'], grade: 'legendary' },
   { id: 'desk001', name: '프로듀서 책상', category: 'furniture', price: 0, description: '집중력을 높여주는 묵직한 작업용 책상', icon: '🪑', tag: '', obtain: ['event'], grade: 'epic' },
   { id: 'desk002', name: '루키 프로듀서 책상', category: 'furniture', price: 0, description: '일반 작업용 책상', icon: '🪑', tag: '', obtain: ['event'], grade: 'common' },
 
