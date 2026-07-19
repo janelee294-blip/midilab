@@ -155,16 +155,15 @@ const Preloader = /** @constructor */ function () { // eslint-disable-line no-un
 				return Promise.reject(new Error(`Failed loading file '${file}'`));
 			}
 			if (isIOSDevice()) {
+				if (raw) {
+					const contentLength = Number(response.headers.get('content-length')) || 0;
+					tracker[file].loaded = contentLength || tracker[file].total || 0;
+					tracker[file].done = true;
+					return response;
+				}
 				return response.arrayBuffer().then(function (buffer) {
 					tracker[file].loaded = buffer.byteLength;
 					tracker[file].done = true;
-					if (raw) {
-						return new Response(buffer, {
-							status: response.status,
-							statusText: response.statusText,
-							headers: response.headers,
-						});
-					}
 					return buffer;
 				});
 			}
