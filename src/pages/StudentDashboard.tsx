@@ -30,6 +30,10 @@ export function StudentDashboard() {
   const [activeModal, setActiveModal] = useState<'registration' | 'refund' | 'extension' | null>(null);
   const [futureBookings, setFutureBookings] = useState(0);
   const [nextMonthDiscount, setNextMonthDiscount] = useState(0);
+  const isIOSDevice =
+    typeof navigator !== 'undefined' &&
+    (/iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
 
   useEffect(() => {
     if (!profile?.id) return;
@@ -291,7 +295,20 @@ export function StudentDashboard() {
       )}
 
       {/* 🚨 2. MyStudio (좀비 영역) - 절대 지워지지 않고 투명망토만 씌움 */}
-      {studioMounted && (
+      {studioMounted && isIOSDevice && (
+        <div className={tab === 'ranking' ? 'flex-1 block' : 'hidden'}>
+          <div className="max-w-5xl mx-auto w-full px-4 py-6">
+            <div className="bg-[#141b2d] border border-[#1e2940] rounded-2xl overflow-hidden text-center">
+              <div className="h-[2px] bg-gradient-to-r from-[#22d3ee] to-[#a855f7]" />
+              <div className="px-6 py-12">
+                <h2 className="text-xl font-bold text-white">내 작업실은 PC에서 이용할 수 있어요</h2>
+                <p className="mt-3 text-sm leading-6 text-[#94a3b8]">현재 iPhone과 iPad에서는 3D 작업실을 지원하지 않습니다. PC에서 접속하면 작업실 꾸미기와 방문 기능을 이용할 수 있습니다.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {studioMounted && !isIOSDevice && (
         <div className={tab === 'ranking' ? 'flex-1 block' : 'hidden'}>
           <MyStudio profile={profile} isActive={tab === 'ranking'} />
         </div>
