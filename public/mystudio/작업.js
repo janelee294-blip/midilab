@@ -109,14 +109,6 @@ const Features = {
 };
 
 const Preloader = /** @constructor */ function () { // eslint-disable-line no-unused-vars
-	function isIOSDevice() {
-		const ua = navigator.userAgent || '';
-		const classicIOS = /iPhone|iPad|iPod/i.test(ua);
-		const iPadDesktopMode = navigator.platform === 'MacIntel'
-			&& navigator.maxTouchPoints > 1;
-		return classicIOS || iPadDesktopMode;
-	}
-
 	function getTrackedResponse(response, load_status) {
 		function onloadprogress(reader, controller) {
 			return reader.read().then(function (result) {
@@ -153,19 +145,6 @@ const Preloader = /** @constructor */ function () { // eslint-disable-line no-un
 		return fetch(file).then(function (response) {
 			if (!response.ok) {
 				return Promise.reject(new Error(`Failed loading file '${file}'`));
-			}
-			if (isIOSDevice()) {
-				if (raw) {
-					const contentLength = Number(response.headers.get('content-length')) || 0;
-					tracker[file].loaded = contentLength || tracker[file].total || 0;
-					tracker[file].done = true;
-					return response;
-				}
-				return response.arrayBuffer().then(function (buffer) {
-					tracker[file].loaded = buffer.byteLength;
-					tracker[file].done = true;
-					return buffer;
-				});
 			}
 			const tr = getTrackedResponse(response, tracker[file]);
 			if (raw) {
