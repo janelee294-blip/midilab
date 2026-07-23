@@ -1,36 +1,30 @@
-const PCK_URL = 'https://pub-d22a4db03f974aff80d669d3f1ef553e.r2.dev/%EC%9E%91%EC%97%85.pck';
-const PCK_SIZE = 480699592;
+const PC_PCK_URL = 'https://pub-d22a4db03f974aff80d669d3f1ef553e.r2.dev/%EC%9E%91%EC%97%85.pck';
+const ANDROID_PCK_URL = 'https://pub-d22a4db03f974aff80d669d3f1ef553e.r2.dev/%EC%9E%91%EC%97%85_mobile.pck';
+const PC_PCK_SIZE = 480699592;
+const ANDROID_PCK_SIZE = 235928488;
 const CACHE_NAME = 'pck-cache-mystudio-v11';
-const CACHE_PREFIX = 'pck-cache-';
+
+const PCK_SIZES = new Map([
+	[PC_PCK_URL, PC_PCK_SIZE],
+	[ANDROID_PCK_URL, ANDROID_PCK_SIZE],
+]);
 
 self.addEventListener('install', (event) => {
 	event.waitUntil(self.skipWaiting());
 });
 
 self.addEventListener('activate', (event) => {
-	event.waitUntil(
-		caches.keys()
-			.then((cacheNames) => Promise.all(
-				cacheNames
-					.filter((cacheName) => cacheName.startsWith(CACHE_PREFIX) && cacheName !== CACHE_NAME)
-					.map((cacheName) => caches.delete(cacheName)),
-			))
-			.catch((err) => {
-				console.warn('Failed to clean up old PCK caches:', err);
-			})
-			.then(() => self.clients.claim())
-			.catch((err) => {
-				console.warn('Failed to activate the PCK cache service worker:', err);
-			}),
-	);
+	event.waitUntil(self.clients.claim().catch((err) => {
+		console.warn('Failed to activate the PCK cache service worker:', err);
+	}));
 });
 
-async function getPckResponse(request) {
+async function getPckResponse(request, pckSize) {
 	let cache = null;
 
 	try {
 		cache = await caches.open(CACHE_NAME);
-		const cachedResponse = await cache.match(PCK_URL);
+		const cachedResponse = await cache.match(request.url);
 		if (cachedResponse) {
 			return {
 				response: cachedResponse,
@@ -47,12 +41,12 @@ async function getPckResponse(request) {
 
 	if (
 		response.status === 200
-		&& contentLength === PCK_SIZE
+		&& contentLength === pckSize
 		&& response.type === 'cors'
 	) {
 		const responseForCache = response.clone();
 		cacheWrite = (cache ? Promise.resolve(cache) : caches.open(CACHE_NAME))
-			.then((pckCache) => pckCache.put(PCK_URL, responseForCache))
+			.then((pckCache) => pckCache.put(request.url, responseForCache))
 			.catch((err) => {
 				console.warn('Failed to store the PCK response:', err);
 			});
@@ -63,7 +57,8 @@ async function getPckResponse(request) {
 
 self.addEventListener('fetch', (event) => {
 	const { request } = event;
-	if (request.method !== 'GET' || request.url !== PCK_URL) {
+	const pckSize = PCK_SIZES.get(request.url);
+	if (request.method !== 'GET' || pckSize === undefined) {
 		return;
 	}
 
@@ -76,7 +71,7 @@ self.addEventListener('fetch', (event) => {
 		return;
 	}
 
-	const pckResponse = getPckResponse(request);
+	const pckResponse = getPckResponse(request, pckSize);
 	event.respondWith(pckResponse.then(({ response }) => response));
 	event.waitUntil(
 		pckResponse

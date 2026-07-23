@@ -111,8 +111,14 @@ body {
 
 		<script src="작업.js"></script>
 		<script>
-const PCK_URL = "https://pub-d22a4db03f974aff80d669d3f1ef553e.r2.dev/%EC%9E%91%EC%97%85.pck";
-const PCK_SIZE = 480699592;
+const PC_PCK_URL = "https://pub-d22a4db03f974aff80d669d3f1ef553e.r2.dev/%EC%9E%91%EC%97%85.pck";
+const ANDROID_PCK_URL = "https://pub-d22a4db03f974aff80d669d3f1ef553e.r2.dev/%EC%9E%91%EC%97%85_mobile.pck";
+const PC_PCK_SIZE = 480699592;
+const ANDROID_PCK_SIZE = 235928488;
+
+const IS_ANDROID = /Android/i.test(navigator.userAgent);
+const PCK_URL = IS_ANDROID ? ANDROID_PCK_URL : PC_PCK_URL;
+const PCK_SIZE = IS_ANDROID ? ANDROID_PCK_SIZE : PC_PCK_SIZE;
 
 const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":true,"executable":"작업","mainPack":PCK_URL,"experimentalVK":false,"fileSizes":{[PCK_URL]:PCK_SIZE,"작업.wasm":35754592},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
 const GODOT_THREADS_ENABLED = false;
