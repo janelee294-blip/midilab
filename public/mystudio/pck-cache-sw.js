@@ -26,6 +26,10 @@ async function getPckResponse(request, pckSize) {
 		cache = await caches.open(CACHE_NAME);
 		const cachedResponse = await cache.match(request.url);
 		if (cachedResponse) {
+			console.log('[StudioSync][PCK_CACHE_HIT]', {
+				cache_name: CACHE_NAME,
+				request_url: request.url,
+			});
 			return {
 				response: cachedResponse,
 				cacheWrite: Promise.resolve(),
@@ -36,6 +40,12 @@ async function getPckResponse(request, pckSize) {
 	}
 
 	const response = await fetch(request);
+	console.log('[StudioSync][PCK_NETWORK_RESPONSE]', {
+		cache_name: CACHE_NAME,
+		request_url: request.url,
+		status: response.status,
+		content_length: response.headers.get('content-length'),
+	});
 	let cacheWrite = Promise.resolve();
 	const contentLength = Number(response.headers.get('content-length'));
 

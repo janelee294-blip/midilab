@@ -2,6 +2,21 @@ import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+let currentJwtSubject: string | null = null;
+
+function readJwtSubject(jwt: string | null): string | null {
+  if (!jwt) return null;
+  try {
+    const payload = jwt.split('.')[1];
+    if (!payload) return null;
+    const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const normalized = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=');
+    const decoded = JSON.parse(atob(normalized)) as { sub?: unknown };
+    return typeof decoded.sub === 'string' ? decoded.sub : null;
+  } catch {
+    return null;
+  }
+}
 
 // Build a Supabase client.  When jwt is provided it is injected as a static
 // Authorization header, which PostgREST forwards to RLS as request.jwt.claims.
@@ -21,7 +36,29 @@ let _current = buildClient(null);
 // Swap the live client for one that carries the new JWT in every request.
 // Called immediately after login and during startup session restore.
 export function setSupabaseJwt(jwt: string | null): void {
+  currentJwtSubject = readJwtSubject(jwt);
   _current = buildClient(jwt);
+}
+
+export function getSupabaseRuntimeDiagnostics(): {
+  origin: string;
+  projectRef: string | null;
+  jwtSubject: string | null;
+} {
+  try {
+    const url = new URL(supabaseUrl);
+    return {
+      origin: url.origin,
+      projectRef: url.hostname.split('.')[0] || null,
+      jwtSubject: currentJwtSubject,
+    };
+  } catch {
+    return {
+      origin: supabaseUrl,
+      projectRef: null,
+      jwtSubject: currentJwtSubject,
+    };
+  }
 }
 
 // Stable export: a Proxy that always forwards to the live _current instance.

@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react';
 import { Star, Maximize2, Minimize2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Music2, VolumeX, Volume2, ShoppingCart, Sparkles, Store, HelpCircle, Hammer, Check, PackageOpen, Edit2, Trash2, DoorOpen } from 'lucide-react';
 import type { Profile, SaveStudioRoomLayoutResult } from '../../lib/supabase';
-import { supabase } from '../../lib/supabase';
+import { getSupabaseRuntimeDiagnostics, supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 
 import { STUDIO_ASSETS } from '../../mystudio/studioAssets';
@@ -208,6 +208,21 @@ type PlainObject = Record<string, unknown>;
 const ROOM_IDS = ['room_lv1', 'room_lv2', 'room_lv3', 'room_lv4', 'room_lv5'] as const;
 type StudioRoomId = typeof ROOM_IDS[number];
 type FlatRoomLayout = PlainObject;
+const STUDIO_SYNC_DIAGNOSTIC_VERSION = 'studio-sync-diag-20260725-1';
+const GODOT_DIAGNOSTIC_MESSAGE_TYPES = new Set([
+  'INITIALIZE_STUDIO_DATA',
+  'SWITCH_ROOM',
+  'LOAD_LAYOUT',
+  'SAVE_ROOM',
+]);
+
+function toDiagnosticJson(value: unknown): string {
+  try {
+    return JSON.stringify(value);
+  } catch (error) {
+    return `[unserializable: ${error instanceof Error ? error.message : String(error)}]`;
+  }
+}
 
 function isActiveRoomId(roomId: unknown): roomId is typeof ACTIVE_ROOM_IDS[number] {
   return typeof roomId === 'string'
@@ -412,6 +427,7 @@ export function MyStudio({ profile, isActive = true }: { profile: Profile, isAct
   const studioLoadRequestRef = useRef(0);
   const currentRoomIdRef = useRef<StudioRoomId>('room_lv1');
   const roomLayoutsByRoomRef = useRef<RoomLayoutsByRoom>(createEmptyRoomLayoutsByRoom());
+  const studioDiagnosticSessionRef = useRef(createSaveRequestId());
   const godotReadyRef = useRef(false);
   const godotReadyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -456,6 +472,50 @@ useEffect(() => {
   useEffect(() => {
     isVisitingRef.current = isVisiting;
   }, [isVisiting]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const logRuntimeDiagnostics = async () => {
+      const supabaseRuntime = getSupabaseRuntimeDiagnostics();
+      const registrations = 'serviceWorker' in navigator
+        ? await navigator.serviceWorker.getRegistrations().catch(() => [])
+        : [];
+      if (cancelled) return;
+
+      console.log('[StudioSync][RUNTIME]', {
+        diagnostic_version: STUDIO_SYNC_DIAGNOSTIC_VERSION,
+        diagnostic_session_id: studioDiagnosticSessionRef.current,
+        profile_user_id: profile.id,
+        supabase: supabaseRuntime,
+        profile_matches_jwt_subject:
+          supabaseRuntime.jwtSubject === null
+            ? null
+            : supabaseRuntime.jwtSubject === profile.id,
+        page_url: window.location.href,
+        user_agent: navigator.userAgent,
+        main_document_scripts: Array.from(document.scripts)
+          .map(script => script.src)
+          .filter(Boolean),
+        loaded_vite_assets: performance
+          .getEntriesByType('resource')
+          .map(entry => entry.name)
+          .filter(name => name.includes('/assets/')),
+        service_worker_controller: navigator.serviceWorker?.controller?.scriptURL ?? null,
+        service_worker_registrations: registrations.map(registration => ({
+          scope: registration.scope,
+          active_script_url: registration.active?.scriptURL ?? null,
+          waiting_script_url: registration.waiting?.scriptURL ?? null,
+          installing_script_url: registration.installing?.scriptURL ?? null,
+        })),
+      });
+    };
+
+    void logRuntimeDiagnostics();
+    return () => {
+      cancelled = true;
+    };
+  }, [profile.id]);
 
   useLayoutEffect(() => {
     const tooltip = desktopInventoryTooltipRef.current;
@@ -525,10 +585,21 @@ useEffect(() => {
   };
 
   const postToGodot = useCallback((message: Record<string, unknown>) => {
+    if (GODOT_DIAGNOSTIC_MESSAGE_TYPES.has(String(message.type))) {
+      console.log('[StudioSync][GODOT_OUTBOUND]', {
+        diagnostic_version: STUDIO_SYNC_DIAGNOSTIC_VERSION,
+        diagnostic_session_id: studioDiagnosticSessionRef.current,
+        profile_user_id: profile.id,
+        message_format: 'window.postMessage(message, "*")',
+        iframe_src: godotFrameRef.current?.src ?? null,
+        payload: message,
+        payload_json: toDiagnosticJson(message),
+      });
+    }
     if (godotFrameRef.current && godotFrameRef.current.contentWindow) {
       godotFrameRef.current.contentWindow.postMessage(message, '*');
     }
-  }, []);
+  }, [profile.id]);
 
   const sendToGodot = useCallback((type: string, data?: any) => {
     postToGodot({ type, data });
@@ -595,6 +666,21 @@ useEffect(() => {
       if (roomResult.error) throw roomResult.error;
       profileData = profileResult.data;
       roomRows = roomResult.data;
+      console.log('[StudioSync][DB_LOAD_ROWS]', {
+        diagnostic_version: STUDIO_SYNC_DIAGNOSTIC_VERSION,
+        diagnostic_session_id: studioDiagnosticSessionRef.current,
+        load_request_id: loadRequestId,
+        load_options: options,
+        profile_user_id: profile.id,
+        supabase: getSupabaseRuntimeDiagnostics(),
+        rows: (roomResult.data ?? []).map(row => ({
+          room_id: row.room_id,
+          layout: row.layout,
+          layout_json: toDiagnosticJson(row.layout),
+          revision: row.revision,
+          updated_at: row.updated_at,
+        })),
+      });
     } catch (loadError) {
       if (loadRequestId !== studioLoadRequestRef.current) return false;
       console.error('[MyStudio] Supabase studio data request threw an error.', loadError);
@@ -605,7 +691,16 @@ useEffect(() => {
       return false;
     }
 
-    if (loadRequestId !== studioLoadRequestRef.current) return false;
+    if (loadRequestId !== studioLoadRequestRef.current) {
+      console.log('[StudioSync][DB_LOAD_IGNORED_STALE]', {
+        diagnostic_version: STUDIO_SYNC_DIAGNOSTIC_VERSION,
+        diagnostic_session_id: studioDiagnosticSessionRef.current,
+        load_request_id: loadRequestId,
+        latest_load_request_id: studioLoadRequestRef.current,
+        profile_user_id: profile.id,
+      });
+      return false;
+    }
 
     if (profileData) {
       const safeInv = deepParse(profileData.inventory);
@@ -646,6 +741,22 @@ useEffect(() => {
       setDefaultRoomId(safeDefaultRoomId);
       setStudioName(profileData.studio_name || `${profile.full_name}의 스튜디오`);
       hasLoadedStudioDataRef.current = true;
+
+      const selectedRoomRow = Array.isArray(roomRows)
+        ? roomRows.find(row => row.room_id === targetRoomId)
+        : null;
+      console.log('[StudioSync][DB_ROOM_SELECTED]', {
+        diagnostic_version: STUDIO_SYNC_DIAGNOSTIC_VERSION,
+        diagnostic_session_id: studioDiagnosticSessionRef.current,
+        load_request_id: loadRequestId,
+        profile_user_id: profile.id,
+        requested_room_id: requestedRoomId,
+        room_id: targetRoomId,
+        layout: getFlatLayoutForRoom(normalizedRoomRows, targetRoomId),
+        layout_json: toDiagnosticJson(getFlatLayoutForRoom(normalizedRoomRows, targetRoomId)),
+        revision: normalizedRoomRows[targetRoomId].revision,
+        updated_at: selectedRoomRow?.updated_at ?? null,
+      });
       
       sendToGodot('INITIALIZE_STUDIO_DATA', { 
         inventory: JSON.stringify(safeInv), 
@@ -919,6 +1030,14 @@ useEffect(() => {
           break;
         case 'SAVE_STUDIO_CONFIRM': {
           const pending = pendingSaveRef.current;
+          console.log('[StudioSync][GODOT_INBOUND_SAVE_CONFIRM]', {
+            diagnostic_version: STUDIO_SYNC_DIAGNOSTIC_VERSION,
+            diagnostic_session_id: studioDiagnosticSessionRef.current,
+            profile_user_id: profile.id,
+            pending_save: pending,
+            payload: event.data,
+            payload_json: toDiagnosticJson(event.data),
+          });
           if (
             !pending
             || event.data.request_id !== pending.request_id
@@ -954,6 +1073,16 @@ useEffect(() => {
           }
 
           try {
+            console.log('[StudioSync][RPC_SAVE_REQUEST]', {
+              diagnostic_version: STUDIO_SYNC_DIAGNOSTIC_VERSION,
+              diagnostic_session_id: studioDiagnosticSessionRef.current,
+              profile_user_id: profile.id,
+              supabase: getSupabaseRuntimeDiagnostics(),
+              room_id: pending.room_id,
+              expected_revision: pending.expected_revision,
+              layout: parsedRoomLayout,
+              layout_json: toDiagnosticJson(parsedRoomLayout),
+            });
             const { data: rpcRows, error: rpcError } = await supabase.rpc(
               'save_studio_room_layout',
               {
@@ -979,12 +1108,46 @@ useEffect(() => {
             }
 
             const saved = rpcResult as unknown as SaveStudioRoomLayoutResult;
+            console.log('[StudioSync][RPC_SAVE_RESPONSE]', {
+              diagnostic_version: STUDIO_SYNC_DIAGNOSTIC_VERSION,
+              diagnostic_session_id: studioDiagnosticSessionRef.current,
+              profile_user_id: profile.id,
+              room_id: saved.room_id,
+              layout: saved.layout,
+              layout_json: toDiagnosticJson(saved.layout),
+              revision: saved.revision,
+              updated_at: saved.updated_at,
+            });
             studioLoadRequestRef.current += 1;
             replaceRoomLayoutEntry(pending.room_id, {
               layout: saved.layout,
               revision: saved.revision,
             });
             setInventory(saved.inventory);
+
+            const { data: verifiedRow, error: verifyError } = await supabase
+              .from('studio_room_layouts')
+              .select('room_id, layout, revision, updated_at')
+              .eq('user_id', profile.id)
+              .eq('room_id', pending.room_id)
+              .single();
+            console.log('[StudioSync][DB_SAVE_VERIFY]', {
+              diagnostic_version: STUDIO_SYNC_DIAGNOSTIC_VERSION,
+              diagnostic_session_id: studioDiagnosticSessionRef.current,
+              profile_user_id: profile.id,
+              room_id: pending.room_id,
+              layout: verifiedRow?.layout ?? null,
+              layout_json: toDiagnosticJson(verifiedRow?.layout ?? null),
+              revision: verifiedRow?.revision ?? null,
+              updated_at: verifiedRow?.updated_at ?? null,
+              error: verifyError
+                ? {
+                    code: verifyError.code,
+                    message: verifyError.message,
+                    details: verifyError.details,
+                  }
+                : null,
+            });
           } catch (saveError: any) {
             const isRevisionConflict =
               saveError?.code === '40001'
