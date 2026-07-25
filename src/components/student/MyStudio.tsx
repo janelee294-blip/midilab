@@ -1030,6 +1030,14 @@ useEffect(() => {
           break;
         case 'SAVE_STUDIO_CONFIRM': {
           const pending = pendingSaveRef.current;
+          const confirmPayload = (
+            typeof event.data.room_id === 'string'
+            || typeof event.data.request_id === 'string'
+          )
+            ? event.data
+            : isPlainObject(event.data.data)
+              ? event.data.data
+              : event.data;
           console.log('[StudioSync][GODOT_INBOUND_SAVE_CONFIRM]', {
             diagnostic_version: STUDIO_SYNC_DIAGNOSTIC_VERSION,
             diagnostic_session_id: studioDiagnosticSessionRef.current,
@@ -1037,15 +1045,17 @@ useEffect(() => {
             pending_save: pending,
             payload: event.data,
             payload_json: toDiagnosticJson(event.data),
+            resolved_payload: confirmPayload,
+            resolved_payload_json: toDiagnosticJson(confirmPayload),
           });
           if (
             !pending
-            || event.data.request_id !== pending.request_id
-            || event.data.room_id !== pending.room_id
+            || confirmPayload.request_id !== pending.request_id
+            || confirmPayload.room_id !== pending.room_id
           ) {
             console.warn('[MyStudio] Ignored stale or mismatched SAVE_STUDIO_CONFIRM.', {
-              receivedRoomId: event.data.room_id,
-              receivedRequestId: event.data.request_id,
+              receivedRoomId: confirmPayload.room_id,
+              receivedRequestId: confirmPayload.request_id,
               pending,
             });
             break;
@@ -1053,7 +1063,7 @@ useEffect(() => {
 
           if (
             isVisitingRef.current
-            || !isStudioRoomId(event.data.room_id)
+            || !isStudioRoomId(confirmPayload.room_id)
             || currentRoomIdRef.current !== pending.room_id
           ) {
             pendingSaveRef.current = null;
@@ -1062,8 +1072,8 @@ useEffect(() => {
             break;
           }
 
-          const parsedRoomLayout = parseFlatLayout(event.data.room_layout);
-          const parsedInventory = parseInventory(event.data.inventory);
+          const parsedRoomLayout = parseFlatLayout(confirmPayload.room_layout);
+          const parsedInventory = parseInventory(confirmPayload.inventory);
           if (!parsedRoomLayout || !parsedInventory) {
             pendingSaveRef.current = null;
             setIsSaving(false);
