@@ -401,6 +401,7 @@ export function MyStudio({ profile, isActive = true }: { profile: Profile, isAct
   const fallbackStyleRef = useRef<{ container: string; bodyOverflow: string } | null>(null);
   const pendingSaveRef = useRef<PendingSave | null>(null);
   const isVisitingRef = useRef(false);
+  const hasSentInitialRoomSwitch = useRef(false);
   const godotReadyRef = useRef(false);
   const godotReadyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -537,14 +538,13 @@ useEffect(() => {
     }
 
     setCurrentRoomId(roomId);
-    postToGodot({ type: 'SWITCH_ROOM', room_id: roomId });
-    postToGodot({
-      type: 'LOAD_LAYOUT',
+    sendToGodot('SWITCH_ROOM', { room_id: roomId });
+    sendToGodot('LOAD_LAYOUT', {
       room_id: roomId,
-      room_layout: JSON.stringify(getFlatLayoutForRoom(roomLayoutsByRoom, roomId)),
+      room_layout: getFlatLayoutForRoom(roomLayoutsByRoom, roomId),
       is_readonly: false,
     });
-  }, [isEditMode, isSaving, postToGodot, roomLayoutsByRoom]);
+  }, [isEditMode, isSaving, roomLayoutsByRoom, sendToGodot]);
 
   const handleSetDefaultRoom = useCallback(async (roomId: string) => {
     if (
@@ -630,6 +630,15 @@ useEffect(() => {
         room_id: safeDefaultRoomId,
       });
 
+      if (
+        shouldSendInitialRoomSwitch
+        && safeDefaultRoomId !== 'room_lv1'
+        && !hasSentInitialRoomSwitch.current
+      ) {
+        hasSentInitialRoomSwitch.current = true;
+        sendToGodot('SWITCH_ROOM', { room_id: safeDefaultRoomId });
+      }
+
       if (shouldSendInitialRoomSwitch) {
         requestAnimationFrame(() => {
           requestAnimationFrame(() => setInitialRoomSyncDone(true));
@@ -685,14 +694,30 @@ useEffect(() => {
       return;
     }
 
+    const targetRoomId = isActiveRoomId(defaultRoomId)
+      && (defaultRoomId === 'room_lv1' || unlockedRooms.includes(defaultRoomId))
+      ? defaultRoomId
+      : 'room_lv1';
+
     setIsVisiting(false);
     isVisitingRef.current = false;
+    setCurrentRoomId(targetRoomId);
+    sendToGodot('SWITCH_ROOM', { room_id: targetRoomId });
+    sendToGodot('LOAD_LAYOUT', {
+      room_id: targetRoomId,
+      room_layout: getFlatLayoutForRoom(roomLayoutsByRoom, targetRoomId),
+      is_readonly: false,
+    });
     await loadStudioData();
     await loadVisitCounts();
   }, [
+    defaultRoomId,
     isSaving,
     loadStudioData,
     loadVisitCounts,
+    roomLayoutsByRoom,
+    sendToGodot,
+    unlockedRooms,
   ]);
 
   const handleStudioMenuMessage = useCallback(async (type: string, data?: any) => {
@@ -755,11 +780,10 @@ useEffect(() => {
       isVisitingRef.current = true;
       setCurrentRoomId(targetRoomId);
 
-      postToGodot({ type: 'SWITCH_ROOM', room_id: targetRoomId });
-      postToGodot({
-        type: 'LOAD_LAYOUT',
+      sendToGodot('SWITCH_ROOM', { room_id: targetRoomId });
+      sendToGodot('LOAD_LAYOUT', {
         room_id: targetRoomId,
-        room_layout: JSON.stringify(getFlatLayoutForRoom(targetLayoutsByRoom, targetRoomId)),
+        room_layout: getFlatLayoutForRoom(targetLayoutsByRoom, targetRoomId),
         is_readonly: true,
       });
 
@@ -767,7 +791,7 @@ useEffect(() => {
     }
 
     sendToGodot(type, data);
-  }, [isSaving, postToGodot, profile.id, sendToGodot]);
+  }, [isSaving, profile.id, sendToGodot]);
 
   const handleIframeLoad = () => {
     clearGodotReadyTimeout();
@@ -778,6 +802,7 @@ useEffect(() => {
     setGodotLoadProgress({ percent: 0, current: 0, total: 0 });
     lastSentEnvKeyRef.current = null;
     pendingSaveRef.current = null;
+    hasSentInitialRoomSwitch.current = false;
     setIsSaving(false);
   };
 
