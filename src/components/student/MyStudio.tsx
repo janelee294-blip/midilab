@@ -1061,13 +1061,13 @@ useEffect(() => {
             break;
           }
 
+          const pendingRequestId = pending.request_id;
+          try {
           if (
             isVisitingRef.current
             || !isStudioRoomId(confirmPayload.room_id)
             || currentRoomIdRef.current !== pending.room_id
           ) {
-            pendingSaveRef.current = null;
-            setIsSaving(false);
             console.warn('[MyStudio] SAVE_STUDIO_CONFIRM rejected for an inactive or invalid room.');
             break;
           }
@@ -1075,8 +1075,6 @@ useEffect(() => {
           const parsedRoomLayout = parseFlatLayout(confirmPayload.room_layout);
           const parsedInventory = parseInventory(confirmPayload.inventory);
           if (!parsedRoomLayout || !parsedInventory) {
-            pendingSaveRef.current = null;
-            setIsSaving(false);
             console.warn('[MyStudio] SAVE_STUDIO_CONFIRM contains invalid JSON payload. DB update skipped.');
             window.alert('저장 데이터 형식이 올바르지 않아 저장하지 못했습니다.');
             break;
@@ -1178,8 +1176,9 @@ useEffect(() => {
               console.warn('[MyStudio] Studio room save failed.', saveError);
               window.alert('작업실 저장에 실패했습니다. 다시 시도해주세요.');
             }
+          }
           } finally {
-            if (pendingSaveRef.current?.request_id === pending.request_id) {
+            if (pendingSaveRef.current?.request_id === pendingRequestId) {
               pendingSaveRef.current = null;
               setIsSaving(false);
             }
