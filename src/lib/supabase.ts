@@ -53,6 +53,23 @@ export interface RoomLayoutByRoom {
   rooms: Record<string, Record<string, RoomLayoutItem>>;
 }
 
+export interface StudioRoomLayout {
+  user_id: string;
+  room_id: string;
+  layout: Record<string, RoomLayoutItem>;
+  revision: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SaveStudioRoomLayoutResult {
+  room_id: string;
+  layout: Record<string, RoomLayoutItem>;
+  revision: number;
+  updated_at: string;
+  inventory: Record<string, number>;
+}
+
 export interface Profile {
   id: string;
   full_name: string;
