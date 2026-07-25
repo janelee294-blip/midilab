@@ -236,6 +236,12 @@ interface PendingSave {
   started_at: number;
 }
 
+interface LoadStudioDataOptions {
+  initial?: boolean;
+  targetRoomId?: string;
+  allowDuringSave?: boolean;
+}
+
 function createEmptyRoomLayoutsByRoom(): RoomLayoutsByRoom {
   return {
     room_lv1: { layout: {}, revision: 0 },
@@ -402,6 +408,10 @@ export function MyStudio({ profile, isActive = true }: { profile: Profile, isAct
   const pendingSaveRef = useRef<PendingSave | null>(null);
   const isVisitingRef = useRef(false);
   const hasSentInitialRoomSwitch = useRef(false);
+  const hasLoadedStudioDataRef = useRef(false);
+  const studioLoadRequestRef = useRef(0);
+  const currentRoomIdRef = useRef<StudioRoomId>('room_lv1');
+  const roomLayoutsByRoomRef = useRef<RoomLayoutsByRoom>(createEmptyRoomLayoutsByRoom());
   const godotReadyRef = useRef(false);
   const godotReadyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -524,27 +534,22 @@ useEffect(() => {
     postToGodot({ type, data });
   }, [postToGodot]);
 
-  const handleSelectRoom = useCallback((roomId: string) => {
-    if (!isActiveRoomId(roomId)) return;
+  const replaceRoomLayouts = useCallback((next: RoomLayoutsByRoom) => {
+    roomLayoutsByRoomRef.current = next;
+    setRoomLayoutsByRoom(next);
+  }, []);
 
-    if (pendingSaveRef.current || isSaving) {
-      window.alert('저장이 끝난 뒤 방을 변경해주세요.');
-      return;
-    }
-
-    if (isEditMode) {
-      window.alert('가구 수정 모드를 종료하고 저장한 뒤 이동해주세요.');
-      return;
-    }
-
-    setCurrentRoomId(roomId);
-    sendToGodot('SWITCH_ROOM', { room_id: roomId });
-    sendToGodot('LOAD_LAYOUT', {
-      room_id: roomId,
-      room_layout: getFlatLayoutForRoom(roomLayoutsByRoom, roomId),
-      is_readonly: false,
-    });
-  }, [isEditMode, isSaving, roomLayoutsByRoom, sendToGodot]);
+  const replaceRoomLayoutEntry = useCallback((
+    roomId: StudioRoomId,
+    entry: RoomLayoutEntry
+  ) => {
+    const next = {
+      ...roomLayoutsByRoomRef.current,
+      [roomId]: entry,
+    };
+    roomLayoutsByRoomRef.current = next;
+    setRoomLayoutsByRoom(next);
+  }, []);
 
   const handleSetDefaultRoom = useCallback(async (roomId: string) => {
     if (
@@ -565,7 +570,13 @@ useEffect(() => {
     setDefaultRoomId(roomId);
   }, [profile.id, unlockedRooms]);
 
-  const loadStudioData = useCallback(async (shouldSendInitialRoomSwitch = false) => {
+  const loadStudioData = useCallback(async (
+    options: LoadStudioDataOptions = {}
+  ): Promise<boolean> => {
+    if (pendingSaveRef.current && !options.allowDuringSave) return false;
+
+    const loadRequestId = ++studioLoadRequestRef.current;
+    hasLoadedStudioDataRef.current = false;
     let profileData;
     let roomRows;
     try {
@@ -585,13 +596,16 @@ useEffect(() => {
       profileData = profileResult.data;
       roomRows = roomResult.data;
     } catch (loadError) {
+      if (loadRequestId !== studioLoadRequestRef.current) return false;
       console.error('[MyStudio] Supabase studio data request threw an error.', loadError);
       const message = loadError instanceof Error ? loadError.message : String(loadError);
-      if (shouldSendInitialRoomSwitch) {
+      if (options.initial) {
         showGodotLoadError('스튜디오 데이터 로드 실패', message);
       }
-      return;
+      return false;
     }
+
+    if (loadRequestId !== studioLoadRequestRef.current) return false;
 
     if (profileData) {
       const safeInv = deepParse(profileData.inventory);
@@ -604,6 +618,13 @@ useEffect(() => {
         && (profileData.default_room_id === 'room_lv1' || safeUnlockedRooms.includes(profileData.default_room_id))
           ? profileData.default_room_id
           : 'room_lv1';
+      const requestedRoomId = options.targetRoomId
+        ?? (options.initial ? safeDefaultRoomId : currentRoomIdRef.current);
+      const targetRoomId =
+        isActiveRoomId(requestedRoomId)
+        && (requestedRoomId === 'room_lv1' || safeUnlockedRooms.includes(requestedRoomId))
+          ? requestedRoomId
+          : safeDefaultRoomId;
 
       if (profileData.default_room_id !== safeDefaultRoomId) {
         supabase
@@ -619,33 +640,63 @@ useEffect(() => {
       
       setInventory(safeInv);
       setUnlockedRooms(safeUnlockedRooms);
-      setRoomLayoutsByRoom(normalizedRoomRows);
-      setCurrentRoomId(safeDefaultRoomId);
+      replaceRoomLayouts(normalizedRoomRows);
+      currentRoomIdRef.current = targetRoomId;
+      setCurrentRoomId(targetRoomId);
       setDefaultRoomId(safeDefaultRoomId);
       setStudioName(profileData.studio_name || `${profile.full_name}의 스튜디오`);
+      hasLoadedStudioDataRef.current = true;
       
       sendToGodot('INITIALIZE_STUDIO_DATA', { 
         inventory: JSON.stringify(safeInv), 
-        room_layout: JSON.stringify(getFlatLayoutForRoom(normalizedRoomRows, safeDefaultRoomId)),
-        room_id: safeDefaultRoomId,
+        room_layout: JSON.stringify(getFlatLayoutForRoom(normalizedRoomRows, targetRoomId)),
+        room_id: targetRoomId,
       });
 
       if (
-        shouldSendInitialRoomSwitch
-        && safeDefaultRoomId !== 'room_lv1'
+        options.initial
+        && targetRoomId !== 'room_lv1'
         && !hasSentInitialRoomSwitch.current
       ) {
         hasSentInitialRoomSwitch.current = true;
-        sendToGodot('SWITCH_ROOM', { room_id: safeDefaultRoomId });
+        sendToGodot('SWITCH_ROOM', { room_id: targetRoomId });
+      } else if (!options.initial) {
+        sendToGodot('SWITCH_ROOM', { room_id: targetRoomId });
       }
 
-      if (shouldSendInitialRoomSwitch) {
+      if (options.initial) {
         requestAnimationFrame(() => {
           requestAnimationFrame(() => setInitialRoomSyncDone(true));
         });
       }
+      return true;
     }
-  }, [profile.id, profile.full_name, sendToGodot, showGodotLoadError]);
+    return false;
+  }, [profile.id, profile.full_name, replaceRoomLayouts, sendToGodot, showGodotLoadError]);
+
+  const handleSelectRoom = useCallback(async (roomId: string) => {
+    if (!isActiveRoomId(roomId)) return;
+
+    if (!hasLoadedStudioDataRef.current) {
+      window.alert('최신 작업실 데이터를 불러오는 중입니다.');
+      return;
+    }
+
+    if (pendingSaveRef.current || isSaving) {
+      window.alert('저장이 끝난 뒤 방을 변경해주세요.');
+      return;
+    }
+
+    if (isEditMode) {
+      window.alert('가구 수정 모드를 종료하고 저장한 뒤 이동해주세요.');
+      return;
+    }
+
+    const loaded = await loadStudioData({ targetRoomId: roomId });
+    if (!loaded) {
+      window.alert('최신 방 배치를 불러오지 못했습니다. 다시 시도해주세요.');
+    }
+  }, [isEditMode, isSaving, loadStudioData]);
 
   const loadVisitCounts = useCallback(async () => {
     const now = new Date();
@@ -694,30 +745,15 @@ useEffect(() => {
       return;
     }
 
-    const targetRoomId = isActiveRoomId(defaultRoomId)
-      && (defaultRoomId === 'room_lv1' || unlockedRooms.includes(defaultRoomId))
-      ? defaultRoomId
-      : 'room_lv1';
-
     setIsVisiting(false);
     isVisitingRef.current = false;
-    setCurrentRoomId(targetRoomId);
-    sendToGodot('SWITCH_ROOM', { room_id: targetRoomId });
-    sendToGodot('LOAD_LAYOUT', {
-      room_id: targetRoomId,
-      room_layout: getFlatLayoutForRoom(roomLayoutsByRoom, targetRoomId),
-      is_readonly: false,
-    });
-    await loadStudioData();
+    await loadStudioData({ targetRoomId: defaultRoomId });
     await loadVisitCounts();
   }, [
     defaultRoomId,
     isSaving,
     loadStudioData,
     loadVisitCounts,
-    roomLayoutsByRoom,
-    sendToGodot,
-    unlockedRooms,
   ]);
 
   const handleStudioMenuMessage = useCallback(async (type: string, data?: any) => {
@@ -776,8 +812,11 @@ useEffect(() => {
 
       setIsEditMode(false);
       setIsTrashMode(false);
+      studioLoadRequestRef.current += 1;
+      hasLoadedStudioDataRef.current = false;
       setIsVisiting(true);
       isVisitingRef.current = true;
+      currentRoomIdRef.current = targetRoomId;
       setCurrentRoomId(targetRoomId);
 
       sendToGodot('SWITCH_ROOM', { room_id: targetRoomId });
@@ -803,6 +842,8 @@ useEffect(() => {
     lastSentEnvKeyRef.current = null;
     pendingSaveRef.current = null;
     hasSentInitialRoomSwitch.current = false;
+    hasLoadedStudioDataRef.current = false;
+    studioLoadRequestRef.current += 1;
     setIsSaving(false);
   };
 
@@ -858,11 +899,12 @@ useEffect(() => {
           break;
         }
         case 'GODOT_READY':
+          if (godotReadyRef.current) break;
           godotReadyRef.current = true;
           clearGodotReadyTimeout();
           setGodotLoadError(null);
           setIsGodotLoaded(true);
-          loadStudioData(true);
+          void loadStudioData({ initial: true });
           break;
         case 'OPEN_SHOP': setIsShopOpen(true); break;
         case 'OPEN_GACHA': setIsGachaOpen(true); break;
@@ -890,10 +932,14 @@ useEffect(() => {
             break;
           }
 
-          if (isVisitingRef.current || !isStudioRoomId(event.data.room_id)) {
+          if (
+            isVisitingRef.current
+            || !isStudioRoomId(event.data.room_id)
+            || currentRoomIdRef.current !== pending.room_id
+          ) {
             pendingSaveRef.current = null;
             setIsSaving(false);
-            console.warn('[MyStudio] SAVE_STUDIO_CONFIRM rejected in visiting mode or for invalid room_id.');
+            console.warn('[MyStudio] SAVE_STUDIO_CONFIRM rejected for an inactive or invalid room.');
             break;
           }
 
@@ -933,13 +979,11 @@ useEffect(() => {
             }
 
             const saved = rpcResult as unknown as SaveStudioRoomLayoutResult;
-            setRoomLayoutsByRoom(current => ({
-              ...current,
-              [pending.room_id]: {
-                layout: saved.layout,
-                revision: saved.revision,
-              },
-            }));
+            studioLoadRequestRef.current += 1;
+            replaceRoomLayoutEntry(pending.room_id, {
+              layout: saved.layout,
+              revision: saved.revision,
+            });
             setInventory(saved.inventory);
           } catch (saveError: any) {
             const isRevisionConflict =
@@ -947,27 +991,16 @@ useEffect(() => {
               || String(saveError?.message || '').includes('STUDIO_ROOM_REVISION_CONFLICT');
 
             if (isRevisionConflict) {
-              const { data: latestRow, error: latestError } = await supabase
-                .from('studio_room_layouts')
-                .select('room_id, layout, revision')
-                .eq('user_id', profile.id)
-                .eq('room_id', pending.room_id)
-                .maybeSingle();
-
-              if (!latestError && latestRow && isPlainObject(latestRow.layout)) {
-                setRoomLayoutsByRoom(current => ({
-                  ...current,
-                  [pending.room_id]: {
-                    layout: latestRow.layout,
-                    revision: latestRow.revision,
-                  },
-                }));
-              } else if (latestError) {
-                console.warn('[MyStudio] Failed to refresh room revision after conflict.', latestError);
-              }
-
               console.warn('[MyStudio] Studio room revision conflict.', saveError);
-              window.alert('다른 기기에서 같은 방이 변경되어 저장하지 못했습니다. 현재 장면은 유지됩니다.');
+              const refreshed = await loadStudioData({
+                targetRoomId: pending.room_id,
+                allowDuringSave: true,
+              });
+              window.alert(
+                refreshed
+                  ? '다른 기기에서 같은 방이 변경되어 최신 배치를 다시 불러왔습니다.'
+                  : '다른 기기에서 같은 방이 변경되어 저장하지 못했습니다. 최신 배치를 다시 불러와주세요.'
+              );
             } else {
               console.warn('[MyStudio] Studio room save failed.', saveError);
               window.alert('작업실 저장에 실패했습니다. 다시 시도해주세요.');
@@ -1001,11 +1034,12 @@ useEffect(() => {
     
     window.addEventListener('message', handleGodotMessage);
     (window as any).onGodotReady = () => {
+      if (godotReadyRef.current) return;
       godotReadyRef.current = true;
       clearGodotReadyTimeout();
       setGodotLoadError(null);
       setIsGodotLoaded(true);
-      loadStudioData(true);
+      void loadStudioData({ initial: true });
     };
 
     return () => {
@@ -1013,7 +1047,13 @@ useEffect(() => {
       delete (window as any).onGodotReady;
       clearGodotReadyTimeout();
     };
-  }, [clearGodotReadyTimeout, loadStudioData, profile.id, showGodotLoadError]);
+  }, [
+    clearGodotReadyTimeout,
+    loadStudioData,
+    profile.id,
+    replaceRoomLayoutEntry,
+    showGodotLoadError,
+  ]);
 
   const sendEnvUpdate = useCallback((nextEnv: StudioEnv) => {
     const envKey = JSON.stringify({
@@ -1142,12 +1182,21 @@ useEffect(() => {
       window.alert('이미 저장 중입니다.');
       return false;
     }
+    if (!hasLoadedStudioDataRef.current) {
+      window.alert('최신 작업실 데이터를 불러온 뒤 저장해주세요.');
+      return false;
+    }
+    if (currentRoomIdRef.current !== roomId) {
+      window.alert('현재 방 정보가 동기화되지 않아 저장할 수 없습니다.');
+      return false;
+    }
 
     const requestId = createSaveRequestId();
+    studioLoadRequestRef.current += 1;
     pendingSaveRef.current = {
       room_id: roomId,
       request_id: requestId,
-      expected_revision: roomLayoutsByRoom[roomId].revision,
+      expected_revision: roomLayoutsByRoomRef.current[roomId].revision,
       started_at: Date.now(),
     };
     setIsSaving(true);
@@ -1157,13 +1206,25 @@ useEffect(() => {
       request_id: requestId,
     });
     return true;
-  }, [isSaving, postToGodot, roomLayoutsByRoom]);
+  }, [isSaving, postToGodot]);
 
-  const toggleEditMode = () => {
+  const toggleEditMode = async () => {
     if (pendingSaveRef.current || isSaving) return;
+    if (!hasLoadedStudioDataRef.current) {
+      window.alert('최신 작업실 데이터를 불러오는 중입니다.');
+      return;
+    }
     if (isVisitingRef.current) {
       window.alert('방문 중에는 편집할 수 없습니다.');
       return;
+    }
+
+    if (!isEditMode) {
+      const loaded = await loadStudioData({ targetRoomId: currentRoomIdRef.current });
+      if (!loaded) {
+        window.alert('최신 방 배치를 불러오지 못해 편집을 시작할 수 없습니다.');
+        return;
+      }
     }
 
     const nextMode = !isEditMode;
