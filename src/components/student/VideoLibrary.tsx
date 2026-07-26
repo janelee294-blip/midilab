@@ -13,35 +13,35 @@ interface VideoItem {
 const SAMPLE_VIDEOS: VideoItem[] = [
   {
     id: '1',
-    title: '기초 음악 이론 - 음정과 음계',
-    description: '장조와 단조의 차이, 기본 음정 구조를 이해합니다.',
-    videoId: 'dQw4w9WgXcQ',
-    duration: '12:34',
-    category: '기초 이론',
+    title: '음악 제작의 전체 구조',
+    description: '전체 흐름을 먼저 보고,편곡의 기본 뼈대를 잡는다.',
+    videoId: 'yUkqku8SY88',
+    duration: '5:22',
+    category: '기초 과정',
   },
   {
     id: '2',
-    title: '리듬 트레이닝 - 기본 박자',
-    description: '4/4 박자, 3/4 박자 등 기본 리듬 패턴을 연습합니다.',
-    videoId: 'dQw4w9WgXcQ',
-    duration: '18:20',
-    category: '리듬',
+    title: '리듬·화성·베이스',
+    description: '편곡의 세가지 뼈대를 조금 더 구체적으로 이해한다.',
+    videoId: '_K3aOWRiUI8',
+    duration: '12:16',
+    category: '기초 과정',
   },
-  {
+  /*{
     id: '3',
     title: '화음의 구조와 코드 진행',
     description: '3화음, 7화음의 구조와 자주 쓰이는 코드 진행을 학습합니다.',
     videoId: 'dQw4w9WgXcQ',
     duration: '25:10',
-    category: '화성학',
-  },
+    category: '기초 과정',
+  },*/
   {
     id: '4',
-    title: '스케일 연습 - 장조 스케일',
-    description: '12개의 장조 스케일을 체계적으로 연습합니다.',
-    videoId: 'dQw4w9WgXcQ',
-    duration: '15:45',
-    category: '연주 기법',
+    title: '믹서와 플러그인',
+    description: '여러 소리를 정리하고 필요한 변화를 만드는 도구를 이해한다.',
+    videoId: 'bpXdUyF69mE',
+    duration: '11:52',
+    category: '기초 과정',
   },
 ];
 
