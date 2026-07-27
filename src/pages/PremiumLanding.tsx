@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Eye, EyeOff, Phone, AlertCircle, CheckCircle, Lock, X, ChevronDown } from 'lucide-react';
+import { Eye, EyeOff, Phone, AlertCircle, CheckCircle, Lock, X, ChevronDown, Mic, SlidersHorizontal, Upload } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase, type Product } from '../lib/supabase';
 import { Logo } from '../components/shared/Logo';
@@ -130,7 +130,7 @@ function useReveal(ref: React.RefObject<HTMLElement>) {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setVisible(true); obs.disconnect(); } }, { threshold: 0.12 });
+    const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setVisible(true); obs.disconnect(); } }, { threshold: 0.08, rootMargin: '0px 0px -8% 0px' });
     obs.observe(el);
     return () => obs.disconnect();
   }, [ref]);
@@ -142,8 +142,8 @@ function Reveal({ children, delay = 0 }: { children: React.ReactNode; delay?: nu
   const ref = useRef<HTMLDivElement>(null);
   const visible = useReveal(ref as React.RefObject<HTMLElement>);
   return (
-    <div ref={ref} style={{ transitionDelay: `${delay}ms` }}
-      className={`transition-all duration-700 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+    <div ref={ref} data-reveal-visible={visible} style={{ transitionDelay: `${delay}ms` }}
+      className={`transition-[opacity,transform] duration-[720ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${visible ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-6 scale-[0.99]'}`}>
       {children}
     </div>
   );
@@ -513,14 +513,44 @@ const PLATFORM_FEATURES = [
   {
     title: '포인트로 꾸미는 3D 작업실',
     description: '챌린지와 배틀 등 포인트 지급 활동으로 얻은 포인트로 아이템을 구매해 수강생 전용 3D 작업실을 자유롭게 꾸밀 수 있습니다.',
-    imageSrc: '',
+    imageSrc: '/landing/studio.png',
   },
 ] as const;
 
-const GOAL_LESSONS = [
-  { number: '01', title: '음악을 처음 시작하는 분', body: 'DAW 설치와 조작부터 리듬, 코드, 사운드 선택까지 첫 곡을 만드는 데 필요한 순서로 배웁니다.' },
-  { number: '02', title: '자작곡을 만들고 싶은 분', body: '아이디어를 곡의 구조로 발전시키고 연주, 보컬 녹음, 편곡을 거쳐 완성된 데모로 만듭니다.' },
-  { number: '03', title: '리믹스를 배우고 싶은 분', body: '레퍼런스를 분석하고 사운드 디자인, 그루브, 전개와 믹싱을 실제 프로젝트 안에서 연결합니다.' },
+const WHY_ITEMS = [
+  {
+    icon: <svg className="w-6 h-6 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h10M4 18h7" /></svg>,
+    title: '복잡한 내용을 구조로 정리합니다',
+    body: '필요한 이론과 기능을 무작정 나열하지 않습니다. 지금 목표에 필요한 내용을 이해하기 쉬운 순서로 연결합니다.',
+  },
+  {
+    icon: <svg className="w-6 h-6 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 4.5l7.5 7.5-7.5 7.5M5.25 12h13.5" /></svg>,
+    title: '막히는 원인을 바로 찾아냅니다',
+    body: '소리가 왜 어색한지, 무엇을 먼저 고쳐야 하는지, 다음 단계로 어떻게 넘어갈지를 실제 프로젝트에서 함께 판단합니다.',
+  },
+  {
+    icon: <svg className="w-6 h-6 text-cyan-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 18V5l12-2v13M9 9l12-2M5 21a4 3 0 100-6 4 3 0 000 6zm12-2a4 3 0 100-6 4 3 0 000 6z" /></svg>,
+    title: '학생이 원하는 결과물로 배웁니다',
+    body: '정해진 예제만 따라 하지 않고, 좋아하는 곡과 만들고 싶은 음악을 중심으로 작곡·편곡·녹음·믹싱을 연결합니다.',
+  },
+] as const;
+
+const PRODUCTION_OPTIONS = [
+  {
+    icon: Mic,
+    title: '보컬 녹음',
+    lines: ['완성된 곡에 필요한 보컬 녹음과', '트랙 정리를 함께 진행합니다.'],
+  },
+  {
+    icon: SlidersHorizontal,
+    title: '믹싱 · 마스터링',
+    lines: ['각 트랙의 균형을 정리하고', '완성된 음원으로 들릴 수 있게 다듬습니다.'],
+  },
+  {
+    icon: Upload,
+    title: '음원 발매',
+    lines: ['국내외 음원 플랫폼 유통과', '발매에 필요한 과정을 함께 준비합니다.'],
+  },
 ] as const;
 
 function SectionHeading({
@@ -533,25 +563,31 @@ function SectionHeading({
   description?: React.ReactNode;
 }) {
   return (
-    <Reveal>
-      <div className="max-w-3xl mx-auto text-center mb-14 sm:mb-20">
+    <div className="max-w-3xl mx-auto text-center mb-8 sm:mb-20">
+      <Reveal delay={0}>
         <span className="text-xs text-cyan-400 tracking-[0.22em] uppercase font-semibold">{eyebrow}</span>
-        <h2 className="text-3xl sm:text-5xl font-bold mt-4 mb-5 leading-[1.2] tracking-tight">{title}</h2>
-        {description && <p className="text-slate-400 text-base sm:text-lg leading-relaxed">{description}</p>}
-      </div>
-    </Reveal>
+      </Reveal>
+      <Reveal delay={80}>
+        <h2 className="max-w-[22rem] sm:max-w-none mx-auto text-[1.75rem] sm:text-5xl font-bold mt-2 sm:mt-4 mb-3 sm:mb-5 leading-[1.2] sm:leading-[1.2] tracking-tight break-keep sm:break-normal">{title}</h2>
+      </Reveal>
+      {description && (
+        <Reveal delay={160}>
+          <p className="text-slate-400 text-sm sm:text-lg leading-6 sm:leading-relaxed">{description}</p>
+        </Reveal>
+      )}
+    </div>
   );
 }
 
 function ValueCard({ icon, title, body, delay }: { icon: React.ReactNode; title: string; body: string; delay: number }) {
   return (
     <Reveal delay={delay}>
-      <div className="group h-full relative bg-white/[0.03] hover:bg-white/[0.055] border border-white/[0.07] hover:border-cyan-400/25 rounded-2xl p-7 sm:p-8 transition-all duration-300 backdrop-blur-sm">
-        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500/15 to-purple-500/15 border border-white/[0.08] flex items-center justify-center mb-6 group-hover:from-cyan-500/25 group-hover:to-purple-500/25 transition-all duration-300">
+      <div className="group h-full relative bg-white/[0.03] md:hover:-translate-y-[3px] md:hover:bg-white/[0.055] border border-white/[0.07] md:hover:border-cyan-400/25 rounded-2xl p-5 sm:p-8 transition-[transform,background-color,border-color] duration-300 backdrop-blur-sm">
+        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500/15 to-purple-500/15 border border-white/[0.08] flex items-center justify-center mb-4 sm:mb-6 group-hover:from-cyan-500/25 group-hover:to-purple-500/25 transition-all duration-300">
           {icon}
         </div>
-        <h3 className="text-white font-semibold text-lg mb-3 leading-tight">{title}</h3>
-        <p className="text-slate-400 text-sm leading-7">{body}</p>
+        <h3 className="text-white font-semibold text-base sm:text-lg mb-3 leading-tight">{title}</h3>
+        <p className="text-slate-400 text-sm leading-6 sm:leading-7">{body}</p>
       </div>
     </Reveal>
   );
@@ -568,11 +604,15 @@ function Divider() {
 // ── Main component ───────────────────────────────────────────────────
 export function PremiumLanding() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const heroCtaRef = useRef<HTMLButtonElement>(null);
+  const finalCtaRef = useRef<HTMLButtonElement>(null);
   useParticleCanvas(canvasRef);
 
   const [showLogin, setShowLogin] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [isHeroCtaVisible, setIsHeroCtaVisible] = useState(true);
+  const [isFinalCtaVisible, setIsFinalCtaVisible] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
@@ -580,8 +620,27 @@ export function PremiumLanding() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
+  useEffect(() => {
+    const heroCta = heroCtaRef.current;
+    const finalCta = finalCtaRef.current;
+    if (!heroCta || !finalCta) return;
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.target === heroCta) setIsHeroCtaVisible(entry.isIntersecting);
+        if (entry.target === finalCta) setIsFinalCtaVisible(entry.isIntersecting);
+      });
+    }, { threshold: 0.01 });
+
+    observer.observe(heroCta);
+    observer.observe(finalCta);
+    return () => observer.disconnect();
+  }, []);
+
+  const showMobileStickyCta = !isHeroCtaVisible && !isFinalCtaVisible && !showForm;
+
   return (
-    <div className="min-h-screen bg-[#0A0A0A] text-white overflow-x-hidden">
+    <div className="premium-landing min-h-screen bg-[#0A0A0A] text-white overflow-x-hidden pb-[calc(4.75rem+env(safe-area-inset-bottom))] sm:pb-0">
       <style>{`
         @keyframes gradient-shift {
           0%,100% { background-position: 0% 50%; }
@@ -600,20 +659,42 @@ export function PremiumLanding() {
           background-size: 200% 200%;
           animation: gradient-shift 3s ease infinite;
         }
+        .reveal-media {
+          opacity: 0;
+          transform: scale(1.025);
+          transition:
+            opacity 900ms cubic-bezier(0.22, 1, 0.36, 1),
+            transform 900ms cubic-bezier(0.22, 1, 0.36, 1);
+          transition-delay: inherit;
+        }
+        [data-reveal-visible="true"] .reveal-media {
+          opacity: 1;
+          transform: scale(1);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .premium-landing *,
+          .premium-landing *::before,
+          .premium-landing *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+            scroll-behavior: auto !important;
+          }
+        }
       `}</style>
 
       <header className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${scrolled ? 'bg-[#0A0A0A]/90 backdrop-blur-xl border-b border-white/[0.06]' : ''}`}>
-        <div className="max-w-6xl mx-auto px-5 sm:px-6 h-16 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-3">
           <Logo theme="dark" size="md" />
           <button onClick={() => setShowLogin(true)}
-            className="text-xs sm:text-sm text-slate-400 hover:text-white border border-white/10 hover:border-white/25 px-3 sm:px-4 py-1.5 rounded-full transition-all duration-200">
+            className="shrink-0 whitespace-nowrap text-[11px] sm:text-sm text-slate-400 hover:text-white border border-white/10 hover:border-white/25 px-2.5 sm:px-4 py-1.5 rounded-full transition-all duration-200">
             기존 수강생 로그인
           </button>
         </div>
       </header>
 
       {/* 1. Hero */}
-      <section className="relative min-h-[100dvh] flex flex-col items-center justify-center px-5 sm:px-6 pt-24 pb-20">
+      <section className="relative min-h-[100dvh] flex flex-col items-center justify-center px-5 sm:px-6 pt-20 sm:pt-24 pb-16 sm:pb-20">
         <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" style={{ pointerEvents: 'none' }} />
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[min(700px,90vw)] h-[420px] rounded-full"
@@ -623,25 +704,25 @@ export function PremiumLanding() {
         </div>
 
         <div className="relative z-10 text-center max-w-5xl mx-auto">
-          <div className="inline-flex items-center gap-2 text-[11px] sm:text-xs text-slate-400 border border-white/[0.08] bg-white/[0.03] backdrop-blur-sm rounded-full px-4 py-2 mb-7 sm:mb-10 tracking-wider">
+          <div className="inline-flex max-w-full items-center gap-2 text-[10px] sm:text-xs text-slate-400 border border-white/[0.08] bg-white/[0.03] backdrop-blur-sm rounded-full px-3 sm:px-4 py-2 mb-7 sm:mb-10 leading-5 sm:leading-normal tracking-wider">
             <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
             홍대입구 대면 · Discord 온라인 1:1 미디·작곡 레슨
           </div>
 
-          <h1 className="text-[2.35rem] sm:text-6xl md:text-7xl font-bold leading-[1.12] tracking-[-0.04em] mb-7 sm:mb-8">
-            원하는 음악이 있다면,<br />
-            가장 빠르게 이해하고<br />
+          <h1 className="max-w-[21rem] sm:max-w-none mx-auto text-[1.9rem] sm:text-6xl md:text-7xl font-bold leading-[1.15] sm:leading-[1.12] tracking-[-0.04em] mb-7 sm:mb-8 break-keep sm:break-normal">
+            원하는 음악이 있다면,<br className="hidden sm:block" />{' '}
+            가장 빠르게 이해하고<br className="hidden sm:block" />{' '}
             <span className="gradient-text">직접 만들 수 있게</span> 가르칩니다.
           </h1>
 
           <p className="text-slate-400 text-base sm:text-xl max-w-2xl mx-auto mb-10 sm:mb-12 leading-relaxed">
             <span className="block text-slate-200 mb-4">FL Studio · Ableton Live</span>
-            완전 초보부터 자작곡, 리믹스, 싱어송라이팅까지<br className="hidden sm:block" />
+            완전 초보부터 자작곡, 리믹스, 싱어송라이팅까지<br className="hidden sm:block" />{' '}
             원하는 음악을 직접 만들 수 있도록 1:1로 진행합니다.
           </p>
 
-          <button onClick={() => setShowForm(true)}
-            className="cta-btn px-8 py-4 rounded-2xl text-white font-bold text-base shadow-[0_0_32px_rgba(34,211,238,0.25)] hover:shadow-[0_0_48px_rgba(34,211,238,0.35)] transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]">
+          <button ref={heroCtaRef} onClick={() => setShowForm(true)}
+            className="cta-btn w-full max-w-[280px] sm:w-auto sm:max-w-none min-h-12 px-6 sm:px-8 py-3 sm:py-4 rounded-2xl text-white font-bold text-base shadow-[0_0_32px_rgba(34,211,238,0.25)] hover:shadow-[0_0_48px_rgba(34,211,238,0.35)] transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]">
             무료 테스트 레슨 신청하기
           </button>
         </div>
@@ -655,29 +736,31 @@ export function PremiumLanding() {
       </section>
 
       {/* 2. Work videos */}
-      <section className="py-24 sm:py-32 px-5 sm:px-6">
+      <section className="py-14 sm:py-32 px-5 sm:px-6">
         <div className="max-w-5xl mx-auto">
           <SectionHeading
             eyebrow="Selected Works"
-            title={<>직접 만들고, 연주하고,<br /><span className="gradient-text">완성하는 프로듀서</span>에게 배웁니다</>}
-            description={<>프로그램 기능만 설명하는 수업이 아니라<br className="hidden sm:block" /> 실제 음악을 만드는 과정과 판단을 함께 익힙니다.</>}
+            title={<>직접 만들고, 연주하고,<br className="hidden sm:block" />{' '}<span className="gradient-text">완성하는 프로듀서</span>에게 배웁니다</>}
+            description={<>프로그램 기능만 설명하는 수업이 아니라<br className="hidden sm:block" />{' '}실제 음악을 만드는 과정과 판단을 함께 익힙니다.</>}
           />
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+          <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 -mx-5 px-5 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>div]:w-[76vw] [&>div]:max-w-[290px] [&>div]:shrink-0 [&>div]:snap-center sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-5 sm:overflow-visible sm:px-0 sm:pb-0 sm:snap-none sm:[&>div]:w-auto sm:[&>div]:max-w-none">
             {WORK_VIDEOS.map((work, index) => (
-              <Reveal key={work.title} delay={index * 100}>
+              <Reveal key={work.title} delay={index * 80}>
                 <div className="group relative aspect-[9/16] max-w-sm mx-auto sm:max-w-none overflow-hidden rounded-3xl border border-white/[0.08] bg-[#10131a] shadow-2xl">
-                  {work.videoUrl ? (
-                    <video className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
-                      src={work.videoUrl} poster={work.posterUrl || undefined} muted loop playsInline controls />
-                  ) : (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-[radial-gradient(circle_at_50%_35%,rgba(34,211,238,0.11),transparent_38%),linear-gradient(145deg,#131722,#090b10)]">
-                      <div className="w-14 h-14 rounded-full border border-white/15 bg-white/[0.06] backdrop-blur flex items-center justify-center text-white/80 transition-transform duration-300 group-hover:scale-110">
-                        <svg className="w-5 h-5 ml-0.5" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+                  <div className="reveal-media absolute inset-0">
+                    {work.videoUrl ? (
+                      <video className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
+                        src={work.videoUrl} poster={work.posterUrl || undefined} muted loop playsInline controls />
+                    ) : (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-[radial-gradient(circle_at_50%_35%,rgba(34,211,238,0.11),transparent_38%),linear-gradient(145deg,#131722,#090b10)]">
+                        <div className="w-14 h-14 rounded-full border border-white/15 bg-white/[0.06] backdrop-blur flex items-center justify-center text-white/80 transition-transform duration-300 group-hover:scale-110">
+                          <svg className="w-5 h-5 ml-0.5" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+                        </div>
+                        <span className="mt-4 text-[10px] uppercase tracking-[0.25em] text-slate-600">Video Coming Soon</span>
                       </div>
-                      <span className="mt-4 text-[10px] uppercase tracking-[0.25em] text-slate-600">Video Coming Soon</span>
-                    </div>
-                  )}
+                    )}
+                  </div>
                   <div className={`absolute inset-0 bg-gradient-to-t ${work.accent} opacity-80 transition-opacity duration-300 group-hover:opacity-100 pointer-events-none`} />
                   <div className="absolute inset-x-0 bottom-0 p-6 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none">
                     <span className="text-[10px] text-cyan-300 tracking-[0.2em] uppercase">Work 0{index + 1}</span>
@@ -687,63 +770,55 @@ export function PremiumLanding() {
               </Reveal>
             ))}
           </div>
-        </div>
-      </section>
-
-      <Divider />
-
-      {/* 3. Lesson method and strengths */}
-      <section className="py-24 sm:py-32 px-5 sm:px-6">
-        <div className="max-w-5xl mx-auto">
-          <SectionHeading
-            eyebrow="Why MIDI LAB"
-            title={<>기능을 외우는 대신,<br /><span className="gradient-text">음악을 완성하는 방법</span>을 배웁니다</>}
-            description="목표와 현재 프로젝트를 기준으로 필요한 과정을 가장 이해하기 쉬운 순서로 연결합니다."
-          />
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            <ValueCard
-              delay={0}
-              icon={<svg className="w-6 h-6 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h10M4 18h7" /></svg>}
-              title="복잡한 내용을 구조로 정리합니다"
-              body="필요한 이론과 기능을 무작정 나열하지 않습니다. 지금 목표에 필요한 내용을 이해하기 쉬운 순서로 연결합니다."
-            />
-            <ValueCard
-              delay={100}
-              icon={<svg className="w-6 h-6 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 4.5l7.5 7.5-7.5 7.5M5.25 12h13.5" /></svg>}
-              title="막히는 원인을 바로 찾아냅니다"
-              body="소리가 왜 어색한지, 무엇을 먼저 고쳐야 하는지, 다음 단계로 어떻게 넘어갈지를 실제 프로젝트에서 함께 판단합니다."
-            />
-            <ValueCard
-              delay={200}
-              icon={<svg className="w-6 h-6 text-cyan-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 18V5l12-2v13M9 9l12-2M5 21a4 3 0 100-6 4 3 0 000 6zm12-2a4 3 0 100-6 4 3 0 000 6z" /></svg>}
-              title="학생이 원하는 결과물로 배웁니다"
-              body="정해진 예제만 따라 하지 않고, 좋아하는 곡과 만들고 싶은 음악을 중심으로 작곡·편곡·녹음·믹싱을 연결합니다."
-            />
+          <div className="mt-4 flex items-center justify-center gap-2 text-[11px] text-slate-500 sm:hidden" aria-label="3개의 작업 영상, 좌우로 넘겨서 확인">
+            <svg aria-hidden="true" className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" /></svg>
+            <span>옆으로 넘겨 작업 더 보기</span>
+            <svg aria-hidden="true" className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="m13.5 4.5 7.5 7.5m0 0-7.5 7.5M21 12H3" /></svg>
+            <span className="ml-1 flex items-center gap-1" aria-hidden="true">
+              <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
+              <span className="h-1.5 w-1.5 rounded-full bg-white/20" />
+              <span className="h-1.5 w-1.5 rounded-full bg-white/20" />
+            </span>
           </div>
         </div>
       </section>
 
       <Divider />
 
-      {/* 4. Goal-based lessons */}
-      <section className="py-24 sm:py-32 px-5 sm:px-6">
+      {/* 3. Lesson method and strengths */}
+      <section className="py-14 sm:py-32 px-5 sm:px-6">
         <div className="max-w-5xl mx-auto">
           <SectionHeading
-            eyebrow="Lesson Paths"
-            title={<>목표가 다르면,<br /><span className="gradient-text">배우는 순서도 달라야 합니다</span></>}
-            description="정해진 진도를 반복하지 않고, 지금 만들고 싶은 결과에서 출발합니다."
+            eyebrow="Why MIDI LAB"
+            title={<>기능을 외우는 대신,<br className="hidden sm:block" />{' '}<span className="gradient-text">음악을 완성하는 방법</span>을 배웁니다</>}
+            description="목표와 현재 프로젝트를 기준으로 필요한 과정을 가장 이해하기 쉬운 순서로 연결합니다."
           />
 
-          <div className="space-y-4">
-            {GOAL_LESSONS.map((goal, index) => (
-              <Reveal key={goal.title} delay={index * 80}>
-                <div className="group grid sm:grid-cols-[90px_1fr_1.5fr] gap-3 sm:gap-8 items-start sm:items-center bg-white/[0.025] hover:bg-white/[0.045] border border-white/[0.07] hover:border-purple-400/20 rounded-2xl px-6 py-7 sm:p-8 transition-all duration-300">
-                  <span className="text-xs text-cyan-400/70 tracking-[0.2em]">{goal.number}</span>
-                  <h3 className="text-xl font-semibold">{goal.title}</h3>
-                  <p className="text-slate-400 text-sm leading-7">{goal.body}</p>
+          <div className="overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.025] px-4 md:hidden">
+            {WHY_ITEMS.map((item, index) => (
+              <Reveal key={item.title} delay={index * 80}>
+                <div className={`flex gap-3 py-4 ${index < WHY_ITEMS.length - 1 ? 'border-b border-white/[0.07]' : ''}`}>
+                  <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500/10 to-purple-500/10 [&>svg]:h-5 [&>svg]:w-5">
+                    {item.icon}
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-semibold leading-5 text-white">{item.title}</h3>
+                    <p className="mt-1 text-[11px] leading-[1.55] text-slate-400">{item.body}</p>
+                  </div>
                 </div>
               </Reveal>
+            ))}
+          </div>
+
+          <div className="hidden md:grid md:grid-cols-3 md:gap-5">
+            {WHY_ITEMS.map((item, index) => (
+              <ValueCard
+                key={item.title}
+                delay={index * 80}
+                icon={item.icon}
+                title={item.title}
+                body={item.body}
+              />
             ))}
           </div>
         </div>
@@ -752,19 +827,19 @@ export function PremiumLanding() {
       <Divider />
 
       {/* 5. Student platform */}
-      <section className="py-24 sm:py-32 px-5 sm:px-6">
+      <section className="py-14 sm:py-32 px-5 sm:px-6">
         <div className="max-w-5xl mx-auto">
           <SectionHeading
             eyebrow="Student Platform"
-            title={<>수업이 끝나도<br /><span className="gradient-text">작업은 계속됩니다</span></>}
-            description={<>배우고 끝나는 구조가 아니라,<br className="hidden sm:block" /> 연습하고 도전하고 보상받는 과정까지 설계했습니다.</>}
+            title={<>수업이 끝나도<br className="hidden sm:block" />{' '}<span className="gradient-text">작업은 계속됩니다</span></>}
+            description={<>배우고 끝나는 구조가 아니라,<br className="hidden sm:block" />{' '}연습하고 도전하고 보상받는 과정까지 설계했습니다.</>}
           />
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div className="grid grid-cols-2 gap-2.5 [&>div]:min-w-0 sm:grid-cols-2 sm:gap-5">
             {PLATFORM_FEATURES.map((feature, index) => (
-              <Reveal key={feature.title} delay={(index % 2) * 100}>
-                <div className="group overflow-hidden h-full bg-white/[0.03] border border-white/[0.07] hover:border-cyan-400/20 rounded-2xl transition-all duration-300">
-                  <div className="relative aspect-[16/9] overflow-hidden bg-[#10131a]">
+              <Reveal key={feature.title} delay={index * 80}>
+                <div className="group overflow-hidden h-full bg-white/[0.03] border border-white/[0.07] md:hover:-translate-y-[3px] md:hover:bg-white/[0.045] md:hover:border-cyan-400/20 rounded-xl sm:rounded-2xl transition-[transform,background-color,border-color] duration-300">
+                  <div className="reveal-media relative aspect-[16/9] overflow-hidden bg-[#10131a]">
                     {feature.imageSrc ? (
                       <img src={feature.imageSrc} alt={`${feature.title} 화면`} className="w-full h-full object-cover object-top transition-transform duration-700 group-hover:scale-[1.02]" />
                     ) : (
@@ -781,10 +856,10 @@ export function PremiumLanding() {
                     )}
                     <div className={`absolute inset-0 bg-gradient-to-t ${feature.imageSrc ? 'from-[#0d0f14]/60' : 'from-[#0d0f14]'} via-transparent to-transparent pointer-events-none`} />
                   </div>
-                  <div className="p-6 sm:p-7">
-                    <span className="text-[10px] text-purple-400 tracking-[0.2em]">0{index + 1}</span>
-                    <h3 className="text-lg font-semibold mt-2 mb-2">{feature.title}</h3>
-                    <p className="text-slate-400 text-sm leading-6">{feature.description}</p>
+                  <div className="p-3 sm:p-7">
+                    <span className="text-[9px] sm:text-[10px] text-purple-400 tracking-[0.2em]">0{index + 1}</span>
+                    <h3 className="mt-1.5 sm:mt-2 mb-1.5 sm:mb-2 min-h-[2.4rem] sm:min-h-0 text-[13px] sm:text-lg font-semibold leading-[1.4] sm:leading-normal break-keep sm:break-normal">{feature.title}</h3>
+                    <p className="text-slate-400 text-[11px] sm:text-sm leading-[1.55] sm:leading-6 break-words">{feature.description}</p>
                   </div>
                 </div>
               </Reveal>
@@ -792,19 +867,19 @@ export function PremiumLanding() {
           </div>
 
           <Reveal>
-            <div className="mt-8 rounded-2xl border border-cyan-400/20 bg-gradient-to-r from-cyan-500/[0.07] via-white/[0.025] to-purple-500/[0.07] px-6 py-5 sm:px-8 sm:py-6 text-center">
+            <div className="mt-5 sm:mt-8 rounded-2xl border border-cyan-400/20 bg-gradient-to-r from-cyan-500/[0.07] via-white/[0.025] to-purple-500/[0.07] px-4 py-4 sm:px-8 sm:py-6 text-center">
               <span className="text-xs text-cyan-300 tracking-[0.16em] uppercase font-semibold">포인트 랭킹</span>
-              <p className="mt-3 text-sm sm:text-base text-slate-200 leading-relaxed">
-                챌린지와 배틀 등으로 획득한<br />
-                누적 포인트를 기준으로<br className="sm:hidden" /> 매달 1위에게 상금을 지급합니다.
+              <p className="mt-2 sm:mt-3 text-xs sm:text-base text-slate-200 leading-5 sm:leading-relaxed">
+                챌린지와 배틀 등으로 획득한<br className="hidden sm:block" />{' '}
+                누적 포인트를 기준으로<br className="hidden" />{' '}매달 1위에게 상금을 지급합니다.
               </p>
               <p className="mt-2 text-xs text-slate-500">(수강생 5명 이상부터 운영)</p>
             </div>
           </Reveal>
 
           <Reveal>
-            <p className="text-center text-slate-300 text-base sm:text-lg leading-relaxed mt-12 sm:mt-16">
-              보여주기 위한 기능이 아니라,<br />
+            <p className="text-center text-slate-300 text-xs sm:text-lg leading-5 sm:leading-relaxed mt-7 sm:mt-16">
+              보여주기 위한 기능이 아니라,<br className="hidden sm:block" />{' '}
               <span className="text-white font-medium">수업 밖에서도 꾸준히 음악을 만들 수 있도록</span> 직접 설계했습니다.
             </p>
           </Reveal>
@@ -814,12 +889,12 @@ export function PremiumLanding() {
       <Divider />
 
       {/* 6. Instructor */}
-      <section className="py-24 sm:py-32 px-5 sm:px-6">
+      <section className="py-14 sm:py-32 px-5 sm:px-6">
         <div className="max-w-5xl mx-auto">
           <Reveal>
-            <div className="relative overflow-hidden grid md:grid-cols-[0.8fr_1.2fr] gap-10 md:gap-16 items-center bg-white/[0.025] border border-white/[0.07] rounded-3xl p-7 sm:p-12">
+            <div className="relative overflow-hidden grid grid-cols-[128px_minmax(0,1fr)] sm:grid-cols-1 md:grid-cols-[0.8fr_1.2fr] gap-x-4 gap-y-0 sm:gap-10 md:gap-16 items-center bg-white/[0.025] border border-white/[0.07] rounded-3xl p-5 sm:p-12">
               <div className="absolute -top-40 -left-32 w-80 h-80 rounded-full bg-cyan-500/[0.05] blur-3xl pointer-events-none" />
-              <div className="relative aspect-square max-w-xs w-full mx-auto overflow-hidden rounded-2xl border border-white/[0.08] bg-[radial-gradient(circle_at_50%_35%,rgba(34,211,238,0.1),transparent_42%),linear-gradient(145deg,#141821,#0b0d12)]">
+              <div className="reveal-media relative aspect-square max-w-[128px] sm:max-w-xs w-full mx-auto overflow-hidden rounded-2xl border border-white/[0.08] bg-[radial-gradient(circle_at_50%_35%,rgba(34,211,238,0.1),transparent_42%),linear-gradient(145deg,#141821,#0b0d12)]">
                 <img
                   src="/landing/profile.png"
                   alt="프로듀서 JVNE 작업 모습"
@@ -827,15 +902,17 @@ export function PremiumLanding() {
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent pointer-events-none" />
               </div>
-              <div className="relative">
-                <span className="text-xs text-cyan-400 tracking-[0.22em] uppercase font-semibold">Instructor</span>
-                <p className="text-sm text-slate-400 mt-4">프로듀서 · 싱어송라이터</p>
-                <p className="gradient-text inline-block text-2xl font-bold mt-1">JVNE</p>
-                <h2 className="text-3xl sm:text-4xl font-bold mt-7 mb-6 leading-tight">
-                  학생이 원하는 음악을<br />
+              <div className="relative contents sm:block">
+                <div className="min-w-0 self-center">
+                  <span className="text-[10px] sm:text-xs text-cyan-400 tracking-[0.18em] sm:tracking-[0.22em] uppercase font-semibold">Instructor</span>
+                  <p className="text-xs sm:text-sm text-slate-400 mt-1 sm:mt-4">프로듀서 · 싱어송라이터</p>
+                  <p className="gradient-text inline-block text-xl sm:text-2xl font-bold mt-0.5 sm:mt-1">JVNE</p>
+                </div>
+                <h2 className="col-span-2 sm:col-span-1 text-[1.3rem] sm:text-4xl font-bold mt-4 sm:mt-7 mb-3 sm:mb-6 leading-snug sm:leading-tight break-keep sm:break-normal">
+                  학생이 원하는 음악을<br className="hidden sm:block" />{' '}
                   가장 이해하기 쉬운 구조로 바꿉니다
                 </h2>
-                <div className="space-y-5 text-slate-400 text-base leading-8">
+                <div className="col-span-2 sm:col-span-1 space-y-2 sm:space-y-5 text-slate-400 text-xs sm:text-base leading-5 sm:leading-8">
                   <p>작곡과 편곡부터 기타, 피아노, 베이스, 드럼, 보컬, 녹음, 믹싱과 마스터링까지 직접 작업합니다.</p>
                   <p>학생이 만들고 싶은 결과를 먼저 파악하고, 현재 수준에 필요한 내용만 이해하기 쉬운 순서로 연결해 가르칩니다.</p>
                 </div>
@@ -848,48 +925,82 @@ export function PremiumLanding() {
       <Divider />
 
       {/* 7. Pricing and lesson format */}
-      <section className="py-24 sm:py-32 px-5 sm:px-6">
+      <section className="py-14 sm:py-32 px-5 sm:px-6">
         <div className="max-w-5xl mx-auto">
           <SectionHeading
             eyebrow="Pricing"
-            title={<>필요한 속도에 맞춰<br /><span className="gradient-text">선택할 수 있습니다</span></>}
-            description="모든 수업은 학생의 프로젝트를 중심으로 진행하는 1:1 레슨입니다."
+            title={<>필요한 속도에 맞춰<br className="hidden sm:block" />{' '}<span className="gradient-text">선택할 수 있습니다</span></>}
+            description={<span className="hidden md:inline">모든 수업은 학생의 프로젝트를 중심으로 진행하는 1:1 레슨입니다.</span>}
           />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 max-w-4xl mx-auto">
+          <Reveal>
+            <div className="overflow-hidden rounded-2xl border border-white/[0.09] bg-white/[0.025] md:hidden">
+              <div className="grid grid-cols-2 divide-x divide-white/[0.08]">
+                {LESSON_PLANS.map(plan => (
+                  <div key={plan.name} className={`min-w-0 p-3.5 ${plan.featured ? 'bg-cyan-400/[0.035]' : ''}`}>
+                    <span className="inline-flex rounded-full border border-cyan-400/20 bg-cyan-400/[0.07] px-2 py-0.5 text-[9px] font-medium text-cyan-300">
+                      첫 등록 혜택
+                    </span>
+                    <h3 className="mt-2 min-h-[2.5rem] text-[13px] font-semibold leading-5 text-white break-keep">{plan.name}</h3>
+                    <p className="mt-2 text-[10px] text-slate-600">
+                      정상가 <span className="line-through decoration-slate-600">{formatWon(plan.originalPrice)}</span>
+                    </p>
+                    <p className="mt-1 text-cyan-300">
+                      <span className="block text-[10px] font-medium">첫 달</span>
+                      <span className="whitespace-nowrap text-[1.05rem] font-bold tracking-tight">{formatWon(plan.price)}</span>
+                    </p>
+                    <div className="my-3 h-px bg-white/[0.07]" />
+                    <div className="space-y-1 text-[11px] leading-4 text-slate-400">
+                      {plan.detail.split(' · ').map(detail => <p key={detail}>{detail}</p>)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Reveal>
+
+          <div className="hidden max-w-4xl mx-auto md:grid md:grid-cols-2 md:gap-5">
             {LESSON_PLANS.map((plan, index) => (
-              <Reveal key={plan.name} delay={index * 100}>
-                <div className={`relative h-full rounded-2xl p-7 sm:p-8 border transition-all duration-300 ${plan.featured ? 'bg-gradient-to-b from-cyan-500/[0.09] to-purple-500/[0.05] border-cyan-400/25 shadow-[0_0_50px_rgba(34,211,238,0.06)]' : 'bg-white/[0.025] border-white/[0.07] hover:border-white/[0.14]'}`}>
+              <Reveal key={plan.name} delay={index * 80}>
+                <div className={`relative h-full rounded-2xl p-5 sm:p-8 border md:hover:-translate-y-[3px] transition-[transform,background-color,border-color,box-shadow] duration-300 ${plan.featured ? 'bg-gradient-to-b from-cyan-500/[0.09] to-purple-500/[0.05] border-cyan-400/25 shadow-[0_0_50px_rgba(34,211,238,0.06)] md:hover:border-cyan-400/35' : 'bg-white/[0.025] border-white/[0.07] md:hover:bg-white/[0.04] md:hover:border-white/[0.14]'}`}>
                   <span className="text-xs text-cyan-300/80 tracking-[0.14em] uppercase">{plan.name}</span>
-                  <span className="absolute top-6 right-6 rounded-full border border-cyan-400/20 bg-cyan-400/[0.07] px-3 py-1 text-[10px] font-medium text-cyan-300">
+                  <span className="absolute top-4 sm:top-6 right-4 sm:right-6 rounded-full border border-cyan-400/20 bg-cyan-400/[0.07] px-3 py-1 text-[10px] font-medium text-cyan-300">
                     첫 등록 혜택
                   </span>
-                  <p className="mt-6 text-sm text-slate-600 line-through decoration-slate-600">{formatWon(plan.originalPrice)}</p>
-                  <p className="mt-1 mb-3 text-3xl font-bold tracking-tight text-cyan-300">첫 달 {formatWon(plan.price)}</p>
+                  <p className="mt-5 sm:mt-6 text-sm text-slate-600 line-through decoration-slate-600">{formatWon(plan.originalPrice)}</p>
+                  <p className="mt-1 mb-3 text-2xl sm:text-3xl font-bold tracking-tight text-cyan-300">첫 달 {formatWon(plan.price)}</p>
                   <p className="text-slate-400 text-sm">{plan.detail}</p>
-                  <div className="h-px bg-white/[0.07] my-6" />
-                  <p className="text-slate-400 text-sm leading-7">{plan.description}</p>
-                  <p className="mt-2 text-slate-500 text-sm leading-7">{plan.normalPriceNote}</p>
+                  <div className="h-px bg-white/[0.07] my-4 sm:my-6" />
+                  <p className="text-slate-400 text-sm leading-6 sm:leading-7">{plan.description}</p>
+                  <p className="mt-2 text-slate-500 text-sm leading-6 sm:leading-7">{plan.normalPriceNote}</p>
                 </div>
               </Reveal>
             ))}
           </div>
 
           <Reveal>
-            <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-8 text-center text-sm text-slate-400">
+            <div className="mt-4 space-y-2 rounded-xl border border-white/[0.07] bg-white/[0.02] px-4 py-3 text-xs leading-5 text-slate-500 md:hidden">
+              <p>모든 수업은 학생의 프로젝트를 중심으로 진행하는 1:1 레슨입니다.</p>
+              <p>다음 달부터 각 과정의 정상가가 적용됩니다.</p>
+              <p>무료 테스트 레슨 후 등록 여부를 결정할 수 있습니다.</p>
+            </div>
+          </Reveal>
+
+          <Reveal>
+            <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-8 text-center text-sm text-slate-400">
               <span className="inline-flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />홍대입구역 사거리 인근 대면</span>
               <span className="hidden sm:block w-px h-4 bg-white/10" />
               <span className="inline-flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-purple-400" />Discord 온라인 수업</span>
             </div>
-            <div className="max-w-2xl mx-auto mt-6 rounded-xl border border-white/[0.07] bg-white/[0.02] px-5 py-4 text-center text-xs sm:text-sm text-slate-500 leading-6">
+            <div className="hidden max-w-2xl mx-auto mt-6 rounded-xl border border-white/[0.07] bg-white/[0.02] px-5 py-4 text-center text-sm text-slate-500 leading-6 md:block">
               <p>무료 테스트 레슨 후 등록 여부를 결정할 수 있습니다.</p>
-              <p className="mt-2 text-slate-400">첫 등록 혜택</p>
-              <p>
+              <p className="hidden sm:block mt-2 text-slate-400">첫 등록 혜택</p>
+              <p className="hidden sm:block">
                 월 4회 첫 달 <span className="text-cyan-300/80">{formatWon(LESSON_PLANS[0].price)}</span>
                 <span className="mx-2 text-slate-700">·</span>
                 월 8회 첫 달 <span className="text-cyan-300/80">{formatWon(LESSON_PLANS[1].price)}</span>
               </p>
-              <p className="mt-1">다음 달부터 각 과정의 정상가가 적용됩니다.</p>
+              <p className="mt-2 sm:mt-1">다음 달부터 각 과정의 정상가가 적용됩니다.</p>
             </div>
           </Reveal>
         </div>
@@ -898,34 +1009,43 @@ export function PremiumLanding() {
       <Divider />
 
       {/* 8. Completion and release support */}
-      <section className="py-24 sm:py-32 px-5 sm:px-6">
+      <section className="pt-14 pb-10 sm:py-32 px-5 sm:px-6">
         <div className="max-w-5xl mx-auto">
           <SectionHeading
             eyebrow="Optional Production Support"
-            title={<>레슨 이후,<br /><span className="gradient-text">곡을 세상에 내보내는 과정까지</span></>}
-            description={<>자작곡이 완성 단계에 도달하면, 필요에 따라 별도 유료 옵션으로<br className="hidden md:block" /> 보컬 녹음, 믹싱·마스터링과 음원 발매까지 함께 진행할 수 있습니다.</>}
+            title={<>레슨 이후,<br className="hidden sm:block" />{' '}<span className="gradient-text">곡을 세상에 내보내는 과정까지</span></>}
+            description={<>
+              <span className="md:hidden">완성된 곡에 필요한 제작·발매 과정을 별도 옵션으로 함께 진행할 수 있습니다.</span>
+              <span className="hidden md:inline">자작곡이 완성 단계에 도달하면, 필요에 따라 별도 유료 옵션으로<br /> 보컬 녹음, 믹싱·마스터링과 음원 발매까지 함께 진행할 수 있습니다.</span>
+            </>}
           />
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {[
-              {
-                title: '보컬 녹음',
-                lines: ['완성된 곡에 필요한 보컬 녹음과', '트랙 정리를 함께 진행합니다.'],
-              },
-              {
-                title: '믹싱 · 마스터링',
-                lines: ['각 트랙의 균형을 정리하고', '완성된 음원으로 들릴 수 있게 다듬습니다.'],
-              },
-              {
-                title: '음원 발매',
-                lines: ['국내외 음원 플랫폼 유통과', '발매에 필요한 과정을 함께 준비합니다.'],
-              },
-            ].map((option, index) => (
-              <Reveal key={option.title} delay={index * 100}>
-                <div className="h-full rounded-2xl border border-dashed border-white/[0.12] bg-white/[0.018] p-7 transition-all duration-300 hover:bg-white/[0.03] hover:border-purple-400/20">
+          <Reveal>
+            <div className="rounded-2xl border border-dashed border-white/[0.12] bg-white/[0.018] p-3.5 md:hidden">
+              <div className="grid grid-cols-3 gap-1.5">
+                {PRODUCTION_OPTIONS.map(({ title, icon: Icon }) => (
+                  <div key={title} className="flex min-w-0 flex-col items-center text-center">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/[0.08] bg-gradient-to-br from-cyan-500/10 to-purple-500/10 text-purple-300">
+                      <Icon size={17} strokeWidth={1.7} aria-hidden="true" />
+                    </div>
+                    <span className="mt-2 text-[10px] font-medium leading-4 text-slate-200 break-keep">{title}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="my-3.5 h-px bg-white/[0.07]" />
+              <p className="text-center text-[11px] leading-5 text-slate-500">
+                곡이 완성 단계에 도달하면 필요한 작업만 별도 유료로 지원합니다.
+              </p>
+            </div>
+          </Reveal>
+
+          <div className="hidden md:grid md:grid-cols-3 md:gap-5">
+            {PRODUCTION_OPTIONS.map((option, index) => (
+              <Reveal key={option.title} delay={index * 80}>
+                <div className="h-full rounded-2xl border border-dashed border-white/[0.12] bg-white/[0.018] p-5 sm:p-7 md:hover:-translate-y-[3px] md:hover:bg-white/[0.03] md:hover:border-purple-400/20 transition-[transform,background-color,border-color] duration-300">
                   <span className="text-[9px] text-slate-600 tracking-[0.18em]">별도 유료 지원</span>
-                  <h3 className="text-lg font-semibold mt-4 mb-5">{option.title}</h3>
-                  <div className="space-y-2 min-h-[68px]">
+                  <h3 className="text-lg font-semibold mt-3 sm:mt-4 mb-4 sm:mb-5">{option.title}</h3>
+                  <div className="space-y-2 min-h-0 md:min-h-[68px]">
                     {option.lines.map(line => <p key={line} className="text-slate-400 text-sm leading-6">{line}</p>)}
                   </div>
                 </div>
@@ -934,7 +1054,7 @@ export function PremiumLanding() {
           </div>
 
           <Reveal>
-            <p className="mt-8 text-center text-xs sm:text-sm text-slate-600">
+            <p className="hidden md:block mt-8 text-center text-sm text-slate-600">
               곡의 상태와 필요한 작업 범위에 따라 비용과 진행 방식이 달라집니다.
             </p>
           </Reveal>
@@ -942,7 +1062,7 @@ export function PremiumLanding() {
       </section>
 
       {/* 9. Final CTA */}
-      <section className="py-28 sm:py-40 px-5 sm:px-6 relative overflow-hidden">
+      <section className="py-16 sm:py-40 px-5 sm:px-6 relative overflow-hidden">
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[min(800px,110vw)] h-[420px] rounded-full"
             style={{ background: 'radial-gradient(ellipse, rgba(34,211,238,0.06) 0%, rgba(168,85,247,0.025) 40%, transparent 70%)' }} />
@@ -951,16 +1071,16 @@ export function PremiumLanding() {
         <div className="max-w-3xl mx-auto text-center relative z-10">
           <Reveal>
             <span className="text-xs text-slate-500 tracking-[0.22em] uppercase font-semibold">Free Test Lesson</span>
-            <h2 className="text-4xl sm:text-5xl md:text-6xl font-bold mt-6 mb-8 leading-tight tracking-tight">
-              백 번의 설명보다<br />
+            <h2 className="text-3xl sm:text-5xl md:text-6xl font-bold mt-5 sm:mt-6 mb-6 sm:mb-8 leading-tight tracking-tight">
+              백 번의 설명보다<br className="hidden sm:block" />{' '}
               <span className="gradient-text">한 번의 경험</span>이 확실합니다
             </h2>
-            <p className="text-slate-400 text-base sm:text-xl mb-12 leading-relaxed">
+            <p className="text-slate-400 text-sm sm:text-xl mb-8 sm:mb-12 leading-6 sm:leading-relaxed">
               무료 테스트 레슨으로 수업 방식과 진행 방향을 직접 확인해보세요.<br />
               수업 후 정규 등록 여부를 결정하시면 됩니다.
             </p>
-            <button onClick={() => setShowForm(true)}
-              className="cta-btn inline-flex items-center gap-3 px-8 sm:px-10 py-4 sm:py-5 rounded-2xl text-white font-bold text-base sm:text-lg shadow-[0_0_40px_rgba(34,211,238,0.2)] hover:shadow-[0_0_60px_rgba(34,211,238,0.35)] transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]">
+            <button ref={finalCtaRef} onClick={() => setShowForm(true)}
+              className="cta-btn inline-flex w-full max-w-[300px] sm:w-auto sm:max-w-none items-center justify-center gap-3 px-6 sm:px-10 py-4 sm:py-5 rounded-2xl text-white font-bold text-base sm:text-lg shadow-[0_0_40px_rgba(34,211,238,0.2)] hover:shadow-[0_0_60px_rgba(34,211,238,0.35)] transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]">
               무료 테스트 레슨 신청하기
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
             </button>
@@ -974,6 +1094,19 @@ export function PremiumLanding() {
           <p className="text-slate-600 text-xs text-center">© {new Date().getFullYear()} MIDI LAB. All rights reserved.</p>
         </div>
       </footer>
+
+      <div
+        aria-hidden={!showMobileStickyCta}
+        className={`fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.08] bg-[#0A0A0A]/90 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur-xl transition-[opacity,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] sm:hidden ${showMobileStickyCta ? 'translate-y-0 opacity-100 pointer-events-auto' : 'translate-y-3 opacity-0 pointer-events-none'}`}
+      >
+        <button
+          onClick={() => setShowForm(true)}
+          tabIndex={showMobileStickyCta ? 0 : -1}
+          className="cta-btn flex min-h-12 w-full items-center justify-center rounded-xl px-5 py-3 text-sm font-bold text-white shadow-[0_0_28px_rgba(34,211,238,0.22)] active:scale-[0.98]"
+        >
+          무료 테스트 레슨 신청하기
+        </button>
+      </div>
 
       {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
       {showForm && <ApplicationForm onClose={() => setShowForm(false)} />}

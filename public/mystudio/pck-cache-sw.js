@@ -1,8 +1,8 @@
 const PC_PCK_URL = 'https://pub-d22a4db03f974aff80d669d3f1ef553e.r2.dev/%EC%9E%91%EC%97%85.pck';
 const ANDROID_PCK_URL = 'https://pub-d22a4db03f974aff80d669d3f1ef553e.r2.dev/%EC%9E%91%EC%97%85_mobile.pck';
-const PC_PCK_SIZE = 480700744;
-const ANDROID_PCK_SIZE = 235932440;
-const CACHE_NAME = 'pck-cache-mystudio-v14';
+const PC_PCK_SIZE = 480700456;
+const ANDROID_PCK_SIZE = 235932152;
+const CACHE_NAME = 'pck-cache-mystudio-v15';
 
 const PCK_SIZES = new Map([
 	[PC_PCK_URL, PC_PCK_SIZE],
