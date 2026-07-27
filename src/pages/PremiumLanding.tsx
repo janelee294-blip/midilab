@@ -130,9 +130,32 @@ function useReveal(ref: React.RefObject<HTMLElement>) {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setVisible(true); obs.disconnect(); } }, { threshold: 0.08, rootMargin: '0px 0px -8% 0px' });
-    obs.observe(el);
-    return () => obs.disconnect();
+
+    let observer: IntersectionObserver | null = null;
+    let frame1 = 0;
+    let frame2 = 0;
+    let cancelled = false;
+
+    frame1 = requestAnimationFrame(() => {
+      frame2 = requestAnimationFrame(() => {
+        if (cancelled) return;
+
+        observer = new IntersectionObserver(([entry]) => {
+          if (entry.isIntersecting && !cancelled) {
+            setVisible(true);
+            observer?.disconnect();
+          }
+        }, { threshold: 0.08, rootMargin: '0px 0px -8% 0px' });
+        observer.observe(el);
+      });
+    });
+
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frame1);
+      cancelAnimationFrame(frame2);
+      observer?.disconnect();
+    };
   }, [ref]);
   return visible;
 }
@@ -489,30 +512,30 @@ function LoginModal({ onClose }: LoginModalProps) {
 
 // ── Landing content ──────────────────────────────────────────────────
 const WORK_VIDEOS = [
-  { title: 'Remix', videoUrl: '', posterUrl: '', accent: 'from-cyan-500/30 via-blue-500/10 to-transparent' },
-  { title: 'Instrument Loop', videoUrl: '', posterUrl: '', accent: 'from-purple-500/30 via-fuchsia-500/10 to-transparent' },
-  { title: 'Original Production', videoUrl: '', posterUrl: '', accent: 'from-cyan-400/20 via-purple-500/15 to-transparent' },
+  { title: 'Instrument Loop', videoUrl: 'https://pub-dadd3def96894f14b8edac385a375b5d.r2.dev/loop.mp4', posterUrl: '', accent: 'from-purple-500/30 via-fuchsia-500/10 to-transparent' },
+  { title: 'Remix 01', videoUrl: 'https://pub-dadd3def96894f14b8edac385a375b5d.r2.dev/remix1.mp4', posterUrl: '', accent: 'from-cyan-500/30 via-blue-500/10 to-transparent' },
+  { title: 'Remix 02', videoUrl: 'https://pub-dadd3def96894f14b8edac385a375b5d.r2.dev/remix2.mp4', posterUrl: '', accent: 'from-cyan-400/20 via-purple-500/15 to-transparent' },
 ] as const;
 
 const PLATFORM_FEATURES = [
   {
     title: '언제든 다시 보는 기초 강의',
-    description: '수업에서 놓친 개념은 짧은 영상으로 다시 확인하고, 필요한 내용을 원하는 만큼 반복해서 볼 수 있습니다.',
+    description: '수업에서 놓친 개념을 짧은 영상으로 다시 확인하고 필요한 만큼 반복합니다.',
     imageSrc: '/landing/lecture.png',
   },
   {
-    title: '음악 챌린지',
-    description: '드럼, 피아노, 베이스, 단축키와 음악 감각을 짧은 미션으로 반복 훈련하고 포인트를 얻습니다.',
-    imageSrc: '/landing/challenge.png',
-  },
-  {
     title: '매주 과제로 레슨비 할인',
-    description: '매주 과제를 완료할 때마다 다음 결제에서 20,000원씩 할인됩니다. 월 4개 과제를 모두 완료하면 최대 80,000원까지 할인받을 수 있습니다.',
+    description: '매주 과제 완료 시 다음 결제에서 20,000원 할인됩니다. 월 4개 완료 시 최대 80,000원 할인됩니다.',
     imageSrc: '/landing/reward.png',
   },
   {
+    title: '음악 챌린지',
+    description: '드럼·피아노·베이스·단축키와 음악 감각을 짧은 미션으로 반복 훈련합니다.',
+    imageSrc: '/landing/challenge.png',
+  },
+  {
     title: '포인트로 꾸미는 3D 작업실',
-    description: '챌린지와 배틀 등 포인트 지급 활동으로 얻은 포인트로 아이템을 구매해 수강생 전용 3D 작업실을 자유롭게 꾸밀 수 있습니다.',
+    description: '챌린지와 배틀로 얻은 포인트로 아이템을 구매해 나만의 작업실을 꾸밉니다.',
     imageSrc: '/landing/studio.png',
   },
 ] as const;
@@ -520,18 +543,18 @@ const PLATFORM_FEATURES = [
 const WHY_ITEMS = [
   {
     icon: <svg className="w-6 h-6 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h10M4 18h7" /></svg>,
-    title: '복잡한 내용을 구조로 정리합니다',
-    body: '필요한 이론과 기능을 무작정 나열하지 않습니다. 지금 목표에 필요한 내용을 이해하기 쉬운 순서로 연결합니다.',
+    title: '필요한 것부터 순서대로 배웁니다',
+    body: '이론과 기능을 무작정 나열하지 않고, 지금 만들고 있는 곡에 필요한 내용부터 연결합니다.',
   },
   {
     icon: <svg className="w-6 h-6 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 4.5l7.5 7.5-7.5 7.5M5.25 12h13.5" /></svg>,
-    title: '막히는 원인을 바로 찾아냅니다',
-    body: '소리가 왜 어색한지, 무엇을 먼저 고쳐야 하는지, 다음 단계로 어떻게 넘어갈지를 실제 프로젝트에서 함께 판단합니다.',
+    title: '막힌 지점을 바로 해결합니다',
+    body: '소리가 왜 어색한지 함께 듣고, 무엇을 먼저 고쳐야 하는지 실제 프로젝트에서 판단합니다.',
   },
   {
     icon: <svg className="w-6 h-6 text-cyan-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 18V5l12-2v13M9 9l12-2M5 21a4 3 0 100-6 4 3 0 000 6zm12-2a4 3 0 100-6 4 3 0 000 6z" /></svg>,
-    title: '학생이 원하는 결과물로 배웁니다',
-    body: '정해진 예제만 따라 하지 않고, 좋아하는 곡과 만들고 싶은 음악을 중심으로 작곡·편곡·녹음·믹싱을 연결합니다.',
+    title: '내가 만들고 싶은 곡으로 배웁니다',
+    body: '정해진 예제 대신 좋아하는 곡과 직접 만들고 싶은 음악으로 작곡·편곡·녹음·믹싱을 익힙니다.',
   },
 ] as const;
 
@@ -539,17 +562,14 @@ const PRODUCTION_OPTIONS = [
   {
     icon: Mic,
     title: '보컬 녹음',
-    lines: ['완성된 곡에 필요한 보컬 녹음과', '트랙 정리를 함께 진행합니다.'],
   },
   {
     icon: SlidersHorizontal,
-    title: '믹싱 · 마스터링',
-    lines: ['각 트랙의 균형을 정리하고', '완성된 음원으로 들릴 수 있게 다듬습니다.'],
+    title: '믹싱/마스터링',
   },
   {
     icon: Upload,
     title: '음원 발매',
-    lines: ['국내외 음원 플랫폼 유통과', '발매에 필요한 과정을 함께 준비합니다.'],
   },
 ] as const;
 
@@ -572,7 +592,7 @@ function SectionHeading({
       </Reveal>
       {description && (
         <Reveal delay={160}>
-          <p className="text-slate-400 text-sm sm:text-lg leading-6 sm:leading-relaxed">{description}</p>
+          <p className="text-slate-400 text-sm sm:text-lg leading-6 sm:leading-relaxed break-keep sm:break-normal">{description}</p>
         </Reveal>
       )}
     </div>
@@ -606,6 +626,7 @@ export function PremiumLanding() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const heroCtaRef = useRef<HTMLButtonElement>(null);
   const finalCtaRef = useRef<HTMLButtonElement>(null);
+  const worksCarouselRef = useRef<HTMLDivElement>(null);
   useParticleCanvas(canvasRef);
 
   const [showLogin, setShowLogin] = useState(false);
@@ -613,6 +634,7 @@ export function PremiumLanding() {
   const [scrolled, setScrolled] = useState(false);
   const [isHeroCtaVisible, setIsHeroCtaVisible] = useState(true);
   const [isFinalCtaVisible, setIsFinalCtaVisible] = useState(false);
+  const [activeWorkIndex, setActiveWorkIndex] = useState(0);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
@@ -639,8 +661,30 @@ export function PremiumLanding() {
 
   const showMobileStickyCta = !isHeroCtaVisible && !isFinalCtaVisible && !showForm;
 
+  const handleWorksCarouselScroll = (event: React.UIEvent<HTMLDivElement>) => {
+    const container = event.currentTarget;
+    if (container.scrollWidth <= container.clientWidth) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const containerCenter = containerRect.left + containerRect.width / 2;
+    let nearestIndex = 0;
+    let nearestDistance = Number.POSITIVE_INFINITY;
+
+    Array.from(container.children).forEach((child, index) => {
+      const childRect = child.getBoundingClientRect();
+      const childCenter = childRect.left + childRect.width / 2;
+      const distance = Math.abs(childCenter - containerCenter);
+      if (distance < nearestDistance) {
+        nearestIndex = index;
+        nearestDistance = distance;
+      }
+    });
+
+    if (nearestIndex !== activeWorkIndex) setActiveWorkIndex(nearestIndex);
+  };
+
   return (
-    <div className="premium-landing min-h-screen bg-[#0A0A0A] text-white overflow-x-hidden pb-[calc(4.75rem+env(safe-area-inset-bottom))] sm:pb-0">
+    <div className="premium-landing min-h-screen bg-[#0A0A0A] text-white overflow-x-hidden pb-[calc(4rem+env(safe-area-inset-bottom))] sm:pb-0">
       <style>{`
         @keyframes gradient-shift {
           0%,100% { background-position: 0% 50%; }
@@ -671,16 +715,6 @@ export function PremiumLanding() {
           opacity: 1;
           transform: scale(1);
         }
-        @media (prefers-reduced-motion: reduce) {
-          .premium-landing *,
-          .premium-landing *::before,
-          .premium-landing *::after {
-            animation-duration: 0.01ms !important;
-            animation-iteration-count: 1 !important;
-            transition-duration: 0.01ms !important;
-            scroll-behavior: auto !important;
-          }
-        }
       `}</style>
 
       <header className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${scrolled ? 'bg-[#0A0A0A]/90 backdrop-blur-xl border-b border-white/[0.06]' : ''}`}>
@@ -709,16 +743,16 @@ export function PremiumLanding() {
             홍대입구 대면 · Discord 온라인 1:1 미디·작곡 레슨
           </div>
 
-          <h1 className="max-w-[21rem] sm:max-w-none mx-auto text-[1.9rem] sm:text-6xl md:text-7xl font-bold leading-[1.15] sm:leading-[1.12] tracking-[-0.04em] mb-7 sm:mb-8 break-keep sm:break-normal">
-            원하는 음악이 있다면,<br className="hidden sm:block" />{' '}
-            가장 빠르게 이해하고<br className="hidden sm:block" />{' '}
-            <span className="gradient-text">직접 만들 수 있게</span> 가르칩니다.
+          <h1 className="max-w-[22rem] sm:max-w-none mx-auto text-[1.8rem] sm:text-6xl md:text-7xl font-bold leading-[1.15] sm:leading-[1.12] tracking-[-0.04em] mb-7 sm:mb-8 break-keep sm:break-normal">
+            원하는 음악을,<br className="hidden sm:block" /><br className="sm:hidden" />{' '}
+            <span className="gradient-text">혼자서도 직접 완성할 수 있게</span><br className="hidden sm:block" /><br className="sm:hidden" />{' '}
+            가르쳐드립니다
           </h1>
 
-          <p className="text-slate-400 text-base sm:text-xl max-w-2xl mx-auto mb-10 sm:mb-12 leading-relaxed">
+          <p className="text-slate-400 text-base sm:text-xl max-w-2xl mx-auto mb-10 sm:mb-12 leading-relaxed break-keep sm:break-normal">
             <span className="block text-slate-200 mb-4">FL Studio · Ableton Live</span>
             완전 초보부터 자작곡, 리믹스, 싱어송라이팅까지<br className="hidden sm:block" />{' '}
-            원하는 음악을 직접 만들 수 있도록 1:1로 진행합니다.
+            원하는 음악을 직접 완성하는 1:1 레슨입니다.
           </p>
 
           <button ref={heroCtaRef} onClick={() => setShowForm(true)}
@@ -741,30 +775,33 @@ export function PremiumLanding() {
           <SectionHeading
             eyebrow="Selected Works"
             title={<>직접 만들고, 연주하고,<br className="hidden sm:block" />{' '}<span className="gradient-text">완성하는 프로듀서</span>에게 배웁니다</>}
-            description={<>프로그램 기능만 설명하는 수업이 아니라<br className="hidden sm:block" />{' '}실제 음악을 만드는 과정과 판단을 함께 익힙니다.</>}
+            description={<>프로그램 사용법만 설명하지 않습니다.<br className="hidden sm:block" />{' '}실제 음악을 만드는 과정과 판단을 함께 배웁니다.</>}
           />
 
-          <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 -mx-5 px-5 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>div]:w-[76vw] [&>div]:max-w-[290px] [&>div]:shrink-0 [&>div]:snap-center sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-5 sm:overflow-visible sm:px-0 sm:pb-0 sm:snap-none sm:[&>div]:w-auto sm:[&>div]:max-w-none">
+          <div ref={worksCarouselRef} onScroll={handleWorksCarouselScroll} className="flex overflow-x-auto overflow-y-hidden overscroll-x-contain touch-pan-x touch-pan-y snap-x snap-mandatory gap-4 -mx-5 px-5 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>div]:w-[84vw] [&>div]:max-w-[320px] [&>div]:shrink-0 [&>div]:snap-center sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-5 sm:overflow-visible sm:overscroll-auto sm:touch-auto sm:px-0 sm:pb-0 sm:snap-none sm:[&>div]:w-auto sm:[&>div]:max-w-none">
             {WORK_VIDEOS.map((work, index) => (
               <Reveal key={work.title} delay={index * 80}>
-                <div className="group relative aspect-[9/16] max-w-sm mx-auto sm:max-w-none overflow-hidden rounded-3xl border border-white/[0.08] bg-[#10131a] shadow-2xl">
-                  <div className="reveal-media absolute inset-0">
-                    {work.videoUrl ? (
-                      <video className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
-                        src={work.videoUrl} poster={work.posterUrl || undefined} muted loop playsInline controls />
-                    ) : (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-[radial-gradient(circle_at_50%_35%,rgba(34,211,238,0.11),transparent_38%),linear-gradient(145deg,#131722,#090b10)]">
-                        <div className="w-14 h-14 rounded-full border border-white/15 bg-white/[0.06] backdrop-blur flex items-center justify-center text-white/80 transition-transform duration-300 group-hover:scale-110">
-                          <svg className="w-5 h-5 ml-0.5" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+                <div className="group max-w-sm mx-auto sm:max-w-none">
+                  <div className="relative aspect-[9/16] shrink-0 overflow-hidden rounded-3xl border border-white/[0.08] bg-[#10131a] shadow-2xl">
+                    <div className="reveal-media absolute inset-0">
+                      {work.videoUrl ? (
+                        <video className="block absolute inset-0 w-full h-full object-cover transition-transform duration-700 md:group-hover:scale-[1.03]"
+                          src={work.videoUrl} poster={work.posterUrl || undefined} playsInline controls preload="metadata"
+                          controlsList="nodownload noplaybackrate" disablePictureInPicture onContextMenu={(e) => e.preventDefault()} />
+                      ) : (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-[radial-gradient(circle_at_50%_35%,rgba(34,211,238,0.11),transparent_38%),linear-gradient(145deg,#131722,#090b10)]">
+                          <div className="w-14 h-14 rounded-full border border-white/15 bg-white/[0.06] backdrop-blur flex items-center justify-center text-white/80 transition-transform duration-300 group-hover:scale-110">
+                            <svg className="w-5 h-5 ml-0.5" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+                          </div>
+                          <span className="mt-4 text-[10px] uppercase tracking-[0.25em] text-slate-600">Video Coming Soon</span>
                         </div>
-                        <span className="mt-4 text-[10px] uppercase tracking-[0.25em] text-slate-600">Video Coming Soon</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className={`absolute inset-0 bg-gradient-to-t ${work.accent} opacity-80 transition-opacity duration-300 group-hover:opacity-100 pointer-events-none`} />
-                  <div className="absolute inset-x-0 bottom-0 p-6 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none">
-                    <span className="text-[10px] text-cyan-300 tracking-[0.2em] uppercase">Work 0{index + 1}</span>
-                    <h3 className="text-xl font-semibold mt-2">{work.title}</h3>
+                      )}
+                    </div>
+                    <div className={`absolute inset-0 bg-gradient-to-t ${work.accent} opacity-80 transition-opacity duration-300 group-hover:opacity-100 pointer-events-none`} />
+                    <div className="absolute inset-x-0 top-0 z-20 p-5 bg-gradient-to-b from-black/80 via-black/35 to-transparent pointer-events-none">
+                      <span className="text-[10px] text-cyan-300 tracking-[0.2em] uppercase">Work 0{index + 1}</span>
+                      <h3 className="mt-1 text-lg font-semibold text-white">{work.title}</h3>
+                    </div>
                   </div>
                 </div>
               </Reveal>
@@ -775,9 +812,9 @@ export function PremiumLanding() {
             <span>옆으로 넘겨 작업 더 보기</span>
             <svg aria-hidden="true" className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="m13.5 4.5 7.5 7.5m0 0-7.5 7.5M21 12H3" /></svg>
             <span className="ml-1 flex items-center gap-1" aria-hidden="true">
-              <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
-              <span className="h-1.5 w-1.5 rounded-full bg-white/20" />
-              <span className="h-1.5 w-1.5 rounded-full bg-white/20" />
+              {WORK_VIDEOS.map((work, index) => (
+                <span key={work.title} className={`h-1.5 w-1.5 rounded-full transition-colors ${index === activeWorkIndex ? 'bg-cyan-400' : 'bg-white/20'}`} />
+              ))}
             </span>
           </div>
         </div>
@@ -859,7 +896,7 @@ export function PremiumLanding() {
                   <div className="p-3 sm:p-7">
                     <span className="text-[9px] sm:text-[10px] text-purple-400 tracking-[0.2em]">0{index + 1}</span>
                     <h3 className="mt-1.5 sm:mt-2 mb-1.5 sm:mb-2 min-h-[2.4rem] sm:min-h-0 text-[13px] sm:text-lg font-semibold leading-[1.4] sm:leading-normal break-keep sm:break-normal">{feature.title}</h3>
-                    <p className="text-slate-400 text-[11px] sm:text-sm leading-[1.55] sm:leading-6 break-words">{feature.description}</p>
+                    <p className="text-slate-400 text-[11px] sm:text-sm leading-[1.55] sm:leading-6 break-keep sm:break-words">{feature.description}</p>
                   </div>
                 </div>
               </Reveal>
@@ -869,19 +906,10 @@ export function PremiumLanding() {
           <Reveal>
             <div className="mt-5 sm:mt-8 rounded-2xl border border-cyan-400/20 bg-gradient-to-r from-cyan-500/[0.07] via-white/[0.025] to-purple-500/[0.07] px-4 py-4 sm:px-8 sm:py-6 text-center">
               <span className="text-xs text-cyan-300 tracking-[0.16em] uppercase font-semibold">포인트 랭킹</span>
-              <p className="mt-2 sm:mt-3 text-xs sm:text-base text-slate-200 leading-5 sm:leading-relaxed">
-                챌린지와 배틀 등으로 획득한<br className="hidden sm:block" />{' '}
-                누적 포인트를 기준으로<br className="hidden" />{' '}매달 1위에게 상금을 지급합니다.
+              <p className="mt-2 sm:mt-3 text-xs sm:text-base text-slate-200 leading-5 sm:leading-relaxed break-keep sm:break-normal">
+                수강생 5명 이상부터 누적 포인트 1위에게 매달 상금을 지급합니다.
               </p>
-              <p className="mt-2 text-xs text-slate-500">(수강생 5명 이상부터 운영)</p>
             </div>
-          </Reveal>
-
-          <Reveal>
-            <p className="text-center text-slate-300 text-xs sm:text-lg leading-5 sm:leading-relaxed mt-7 sm:mt-16">
-              보여주기 위한 기능이 아니라,<br className="hidden sm:block" />{' '}
-              <span className="text-white font-medium">수업 밖에서도 꾸준히 음악을 만들 수 있도록</span> 직접 설계했습니다.
-            </p>
           </Reveal>
         </div>
       </section>
@@ -909,12 +937,19 @@ export function PremiumLanding() {
                   <p className="gradient-text inline-block text-xl sm:text-2xl font-bold mt-0.5 sm:mt-1">JVNE</p>
                 </div>
                 <h2 className="col-span-2 sm:col-span-1 text-[1.3rem] sm:text-4xl font-bold mt-4 sm:mt-7 mb-3 sm:mb-6 leading-snug sm:leading-tight break-keep sm:break-normal">
-                  학생이 원하는 음악을<br className="hidden sm:block" />{' '}
-                  가장 이해하기 쉬운 구조로 바꿉니다
+                  여러 악기와 제작 전 과정을<br className="hidden sm:block" />{' '}
+                  직접 다루는 프로듀서가 가르쳐드립니다
                 </h2>
                 <div className="col-span-2 sm:col-span-1 space-y-2 sm:space-y-5 text-slate-400 text-xs sm:text-base leading-5 sm:leading-8">
-                  <p>작곡과 편곡부터 기타, 피아노, 베이스, 드럼, 보컬, 녹음, 믹싱과 마스터링까지 직접 작업합니다.</p>
-                  <p>학생이 만들고 싶은 결과를 먼저 파악하고, 현재 수준에 필요한 내용만 이해하기 쉬운 순서로 연결해 가르칩니다.</p>
+                  <p>기타, 피아노, 베이스, 드럼과 보컬을 직접 다루며 작곡·편곡부터 녹음, 믹싱, 마스터링까지 작업합니다.</p>
+                  <p>학생이 만들고 싶은 결과를 먼저 확인한 뒤, 현재 수준에 필요한 과정만 단계별로 연결합니다.</p>
+                  <div className="flex flex-wrap gap-2 pt-1 sm:pt-2">
+                    {['네이버 그라폴리오 사운드 작가', '「대구를 노래하다」 최우수상', '연등회 음악 공모 입상'].map(credit => (
+                      <span key={credit} className="rounded-full border border-white/[0.09] bg-white/[0.035] px-2.5 py-1 text-[10px] sm:text-xs leading-4 text-slate-400">
+                        {credit}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
@@ -929,7 +964,7 @@ export function PremiumLanding() {
         <div className="max-w-5xl mx-auto">
           <SectionHeading
             eyebrow="Pricing"
-            title={<>필요한 속도에 맞춰<br className="hidden sm:block" />{' '}<span className="gradient-text">선택할 수 있습니다</span></>}
+            title={<>필요한 속도에 맞춰<br className="hidden sm:block" /><br className="sm:hidden" />{' '}<span className="gradient-text">선택할 수 있습니다</span></>}
             description={<span className="hidden md:inline">모든 수업은 학생의 프로젝트를 중심으로 진행하는 1:1 레슨입니다.</span>}
           />
 
@@ -980,7 +1015,6 @@ export function PremiumLanding() {
 
           <Reveal>
             <div className="mt-4 space-y-2 rounded-xl border border-white/[0.07] bg-white/[0.02] px-4 py-3 text-xs leading-5 text-slate-500 md:hidden">
-              <p>모든 수업은 학생의 프로젝트를 중심으로 진행하는 1:1 레슨입니다.</p>
               <p>다음 달부터 각 과정의 정상가가 적용됩니다.</p>
               <p>무료 테스트 레슨 후 등록 여부를 결정할 수 있습니다.</p>
             </div>
@@ -994,13 +1028,7 @@ export function PremiumLanding() {
             </div>
             <div className="hidden max-w-2xl mx-auto mt-6 rounded-xl border border-white/[0.07] bg-white/[0.02] px-5 py-4 text-center text-sm text-slate-500 leading-6 md:block">
               <p>무료 테스트 레슨 후 등록 여부를 결정할 수 있습니다.</p>
-              <p className="hidden sm:block mt-2 text-slate-400">첫 등록 혜택</p>
-              <p className="hidden sm:block">
-                월 4회 첫 달 <span className="text-cyan-300/80">{formatWon(LESSON_PLANS[0].price)}</span>
-                <span className="mx-2 text-slate-700">·</span>
-                월 8회 첫 달 <span className="text-cyan-300/80">{formatWon(LESSON_PLANS[1].price)}</span>
-              </p>
-              <p className="mt-2 sm:mt-1">다음 달부터 각 과정의 정상가가 적용됩니다.</p>
+              <p className="mt-1">첫 달 할인 이후에는 각 과정의 정상가가 적용됩니다.</p>
             </div>
           </Reveal>
         </div>
@@ -1009,54 +1037,27 @@ export function PremiumLanding() {
       <Divider />
 
       {/* 8. Completion and release support */}
-      <section className="pt-14 pb-10 sm:py-32 px-5 sm:px-6">
-        <div className="max-w-5xl mx-auto">
-          <SectionHeading
-            eyebrow="Optional Production Support"
-            title={<>레슨 이후,<br className="hidden sm:block" />{' '}<span className="gradient-text">곡을 세상에 내보내는 과정까지</span></>}
-            description={<>
-              <span className="md:hidden">완성된 곡에 필요한 제작·발매 과정을 별도 옵션으로 함께 진행할 수 있습니다.</span>
-              <span className="hidden md:inline">자작곡이 완성 단계에 도달하면, 필요에 따라 별도 유료 옵션으로<br /> 보컬 녹음, 믹싱·마스터링과 음원 발매까지 함께 진행할 수 있습니다.</span>
-            </>}
-          />
-
+      <section className="py-10 sm:py-14 px-5 sm:px-6">
+        <div className="max-w-4xl mx-auto">
           <Reveal>
-            <div className="rounded-2xl border border-dashed border-white/[0.12] bg-white/[0.018] p-3.5 md:hidden">
-              <div className="grid grid-cols-3 gap-1.5">
+            <div className="rounded-2xl border border-white/[0.09] bg-gradient-to-r from-cyan-500/[0.04] via-white/[0.025] to-purple-500/[0.04] px-4 py-5 sm:px-8 sm:py-7 text-center">
+              <span className="text-[10px] sm:text-xs text-cyan-400 tracking-[0.18em] sm:tracking-[0.22em] uppercase font-semibold">Optional Production Support</span>
+              <h2 className="mt-2 sm:mt-3 text-xl sm:text-2xl font-bold leading-snug break-keep">곡 완성 후에도 이어서 지원합니다</h2>
+              <div className="mt-4 sm:mt-5 grid grid-cols-3 gap-2 sm:gap-4">
                 {PRODUCTION_OPTIONS.map(({ title, icon: Icon }) => (
-                  <div key={title} className="flex min-w-0 flex-col items-center text-center">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/[0.08] bg-gradient-to-br from-cyan-500/10 to-purple-500/10 text-purple-300">
-                      <Icon size={17} strokeWidth={1.7} aria-hidden="true" />
+                  <div key={title} className="flex min-w-0 flex-col sm:flex-row items-center justify-center gap-2 text-center">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/[0.08] bg-gradient-to-br from-cyan-500/10 to-purple-500/10 text-purple-300">
+                      <Icon size={17} className="h-[19px] w-[19px] sm:h-[17px] sm:w-[17px]" strokeWidth={1.7} aria-hidden="true" />
                     </div>
-                    <span className="mt-2 text-[10px] font-medium leading-4 text-slate-200 break-keep">{title}</span>
+                    <span className="text-[11px] sm:text-sm font-medium leading-4 sm:leading-5 text-slate-200 break-keep">{title}</span>
                   </div>
                 ))}
               </div>
-              <div className="my-3.5 h-px bg-white/[0.07]" />
-              <p className="text-center text-[11px] leading-5 text-slate-500">
-                곡이 완성 단계에 도달하면 필요한 작업만 별도 유료로 지원합니다.
+              <div className="my-4 sm:my-5 h-px bg-white/[0.07]" />
+              <p className="text-[11px] sm:text-sm leading-5 sm:leading-6 text-slate-500">
+                원하시는 경우, 곡 마무리 작업도 별도 유료로 진행해드립니다.
               </p>
             </div>
-          </Reveal>
-
-          <div className="hidden md:grid md:grid-cols-3 md:gap-5">
-            {PRODUCTION_OPTIONS.map((option, index) => (
-              <Reveal key={option.title} delay={index * 80}>
-                <div className="h-full rounded-2xl border border-dashed border-white/[0.12] bg-white/[0.018] p-5 sm:p-7 md:hover:-translate-y-[3px] md:hover:bg-white/[0.03] md:hover:border-purple-400/20 transition-[transform,background-color,border-color] duration-300">
-                  <span className="text-[9px] text-slate-600 tracking-[0.18em]">별도 유료 지원</span>
-                  <h3 className="text-lg font-semibold mt-3 sm:mt-4 mb-4 sm:mb-5">{option.title}</h3>
-                  <div className="space-y-2 min-h-0 md:min-h-[68px]">
-                    {option.lines.map(line => <p key={line} className="text-slate-400 text-sm leading-6">{line}</p>)}
-                  </div>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-
-          <Reveal>
-            <p className="hidden md:block mt-8 text-center text-sm text-slate-600">
-              곡의 상태와 필요한 작업 범위에 따라 비용과 진행 방식이 달라집니다.
-            </p>
           </Reveal>
         </div>
       </section>
@@ -1071,13 +1072,13 @@ export function PremiumLanding() {
         <div className="max-w-3xl mx-auto text-center relative z-10">
           <Reveal>
             <span className="text-xs text-slate-500 tracking-[0.22em] uppercase font-semibold">Free Test Lesson</span>
-            <h2 className="text-3xl sm:text-5xl md:text-6xl font-bold mt-5 sm:mt-6 mb-6 sm:mb-8 leading-tight tracking-tight">
-              백 번의 설명보다<br className="hidden sm:block" />{' '}
-              <span className="gradient-text">한 번의 경험</span>이 확실합니다
+            <h2 className="text-3xl sm:text-5xl md:text-6xl font-bold mt-5 sm:mt-6 mb-6 sm:mb-8 leading-tight tracking-tight break-keep sm:break-normal">
+              무료 테스트 레슨으로,<br className="hidden sm:block" /><br className="sm:hidden" />{' '}
+              <span className="gradient-text">직접 확인해보세요</span>
             </h2>
             <p className="text-slate-400 text-sm sm:text-xl mb-8 sm:mb-12 leading-6 sm:leading-relaxed">
-              무료 테스트 레슨으로 수업 방식과 진행 방향을 직접 확인해보세요.<br />
-              수업 후 정규 등록 여부를 결정하시면 됩니다.
+              수업 방식과 진행 방향을 먼저 경험한 뒤<br className="hidden sm:block" />{' '}
+              정규 등록 여부를 결정하시면 됩니다.
             </p>
             <button ref={finalCtaRef} onClick={() => setShowForm(true)}
               className="cta-btn inline-flex w-full max-w-[300px] sm:w-auto sm:max-w-none items-center justify-center gap-3 px-6 sm:px-10 py-4 sm:py-5 rounded-2xl text-white font-bold text-base sm:text-lg shadow-[0_0_40px_rgba(34,211,238,0.2)] hover:shadow-[0_0_60px_rgba(34,211,238,0.35)] transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]">
@@ -1097,12 +1098,12 @@ export function PremiumLanding() {
 
       <div
         aria-hidden={!showMobileStickyCta}
-        className={`fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.08] bg-[#0A0A0A]/90 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur-xl transition-[opacity,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] sm:hidden ${showMobileStickyCta ? 'translate-y-0 opacity-100 pointer-events-auto' : 'translate-y-3 opacity-0 pointer-events-none'}`}
+        className={`fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.08] bg-[#0A0A0A]/90 px-4 pt-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom))] backdrop-blur-xl transition-[opacity,transform] duration-[350ms] ease-[cubic-bezier(0.22,1,0.36,1)] sm:hidden ${showMobileStickyCta ? 'translate-y-0 opacity-100 pointer-events-auto' : 'translate-y-4 opacity-0 pointer-events-none'}`}
       >
         <button
           onClick={() => setShowForm(true)}
           tabIndex={showMobileStickyCta ? 0 : -1}
-          className="cta-btn flex min-h-12 w-full items-center justify-center rounded-xl px-5 py-3 text-sm font-bold text-white shadow-[0_0_28px_rgba(34,211,238,0.22)] active:scale-[0.98]"
+          className="cta-btn flex min-h-12 w-full items-center justify-center rounded-xl px-5 py-2.5 text-sm font-bold text-white shadow-[0_0_28px_rgba(34,211,238,0.22)] active:scale-[0.98]"
         >
           무료 테스트 레슨 신청하기
         </button>
