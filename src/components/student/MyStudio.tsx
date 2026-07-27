@@ -215,6 +215,11 @@ const GODOT_DIAGNOSTIC_MESSAGE_TYPES = new Set([
   'LOAD_LAYOUT',
   'SAVE_ROOM',
 ]);
+const GODOT_ROOM_TARGET_MESSAGE_TYPES = new Set([
+  'INITIALIZE_STUDIO_DATA',
+  'SWITCH_ROOM',
+  'LOAD_LAYOUT',
+]);
 
 function toDiagnosticJson(value: unknown): string {
   try {
@@ -602,6 +607,12 @@ useEffect(() => {
   }, [profile.id]);
 
   const sendToGodot = useCallback((type: string, data?: any) => {
+    if (
+      GODOT_ROOM_TARGET_MESSAGE_TYPES.has(type)
+      && (!isPlainObject(data) || !isActiveRoomId(data.room_id))
+    ) {
+      return;
+    }
     postToGodot({ type, data });
   }, [postToGodot]);
 
