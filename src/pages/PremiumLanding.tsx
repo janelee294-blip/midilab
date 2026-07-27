@@ -149,6 +149,38 @@ function Reveal({ children, delay = 0 }: { children: React.ReactNode; delay?: nu
   );
 }
 
+const FIRST_MONTH_PRICES: Readonly<Record<number, number>> = {
+  4: 190000,
+  8: 320000,
+};
+
+const LESSON_PLANS = [
+  {
+    tickets: 4,
+    name: '월 4회 과정',
+    detail: '주 1회 · 총 4회 · 회당 60분',
+    description: '꾸준히 배우며 자작곡 제작의 기초를 쌓는 과정',
+    originalPrice: 240000,
+    price: FIRST_MONTH_PRICES[4],
+    normalPriceNote: '이후 월 240,000원',
+    featured: false,
+  },
+  {
+    tickets: 8,
+    name: '월 8회 집중 과정',
+    detail: '주 2회 · 총 8회 · 회당 60분',
+    description: '제작량을 빠르게 늘리고 자작곡을 집중적으로 완성하는 과정',
+    originalPrice: 400000,
+    price: FIRST_MONTH_PRICES[8],
+    normalPriceNote: '이후 월 400,000원',
+    featured: true,
+  },
+] as const;
+
+function formatWon(amount: number) {
+  return `${amount.toLocaleString()}원`;
+}
+
 // ── Application form ─────────────────────────────────────────────────
 interface AppFormProps { onClose: () => void }
 
@@ -243,12 +275,16 @@ function ApplicationForm({ onClose }: AppFormProps) {
                 <select required value={appProductId} onChange={e => setAppProductId(e.target.value)}
                   className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-400/40">
                   <option value="" disabled className="bg-slate-900 text-slate-400">상품을 선택해주세요</option>
-                  {products.map(p => (
-                    <option key={p.id} value={p.id} className="bg-slate-900 text-white">
-                      {p.name} — {p.total_price.toLocaleString()}원 / {p.tickets}회
-                    </option>
-                  ))}
+                  {products.map(p => {
+                    const firstMonthPrice = FIRST_MONTH_PRICES[p.tickets];
+                    return (
+                      <option key={p.id} value={p.id} className="bg-slate-900 text-white">
+                        {p.name} — {firstMonthPrice ? `첫 달 ${formatWon(firstMonthPrice)}` : formatWon(p.total_price)} / {p.tickets}회
+                      </option>
+                    );
+                  })}
                 </select>
+                <p className="mt-1.5 text-[11px] text-slate-600">첫 등록 할인은 신청 승인 후 적용됩니다.</p>
               </div>
 
               <div>
@@ -451,32 +487,81 @@ function LoginModal({ onClose }: LoginModalProps) {
   );
 }
 
-// ── Value card ────────────────────────────────────────────────────────
-function ValueCard({ icon, title, body, delay }: { icon: React.ReactNode; title: string; body: string; delay: number }) {
+// ── Landing content ──────────────────────────────────────────────────
+const WORK_VIDEOS = [
+  { title: 'Remix', videoUrl: '', posterUrl: '', accent: 'from-cyan-500/30 via-blue-500/10 to-transparent' },
+  { title: 'Instrument Loop', videoUrl: '', posterUrl: '', accent: 'from-purple-500/30 via-fuchsia-500/10 to-transparent' },
+  { title: 'Original Production', videoUrl: '', posterUrl: '', accent: 'from-cyan-400/20 via-purple-500/15 to-transparent' },
+] as const;
+
+const PLATFORM_FEATURES = [
+  {
+    title: '언제든 다시 보는 기초 강의',
+    description: '수업에서 놓친 개념은 짧은 영상으로 다시 확인하고, 필요한 내용을 원하는 만큼 반복해서 볼 수 있습니다.',
+    imageSrc: '/landing/lecture.png',
+  },
+  {
+    title: '음악 챌린지',
+    description: '드럼, 피아노, 베이스, 단축키와 음악 감각을 짧은 미션으로 반복 훈련하고 포인트를 얻습니다.',
+    imageSrc: '/landing/challenge.png',
+  },
+  {
+    title: '매주 과제로 레슨비 할인',
+    description: '매주 과제를 완료할 때마다 다음 결제에서 20,000원씩 할인됩니다. 월 4개 과제를 모두 완료하면 최대 80,000원까지 할인받을 수 있습니다.',
+    imageSrc: '/landing/reward.png',
+  },
+  {
+    title: '포인트로 꾸미는 3D 작업실',
+    description: '챌린지와 배틀 등 포인트 지급 활동으로 얻은 포인트로 아이템을 구매해 수강생 전용 3D 작업실을 자유롭게 꾸밀 수 있습니다.',
+    imageSrc: '',
+  },
+] as const;
+
+const GOAL_LESSONS = [
+  { number: '01', title: '음악을 처음 시작하는 분', body: 'DAW 설치와 조작부터 리듬, 코드, 사운드 선택까지 첫 곡을 만드는 데 필요한 순서로 배웁니다.' },
+  { number: '02', title: '자작곡을 만들고 싶은 분', body: '아이디어를 곡의 구조로 발전시키고 연주, 보컬 녹음, 편곡을 거쳐 완성된 데모로 만듭니다.' },
+  { number: '03', title: '리믹스를 배우고 싶은 분', body: '레퍼런스를 분석하고 사운드 디자인, 그루브, 전개와 믹싱을 실제 프로젝트 안에서 연결합니다.' },
+] as const;
+
+function SectionHeading({
+  eyebrow,
+  title,
+  description,
+}: {
+  eyebrow: string;
+  title: React.ReactNode;
+  description?: React.ReactNode;
+}) {
   return (
-    <Reveal delay={delay}>
-      <div className="group relative bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.07] hover:border-cyan-400/25 rounded-2xl p-8 transition-all duration-300 backdrop-blur-sm">
-        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500/15 to-purple-500/15 border border-white/[0.08] flex items-center justify-center mb-5 group-hover:from-cyan-500/25 group-hover:to-purple-500/25 transition-all duration-300">
-          {icon}
-        </div>
-        <h3 className="text-white font-semibold text-lg mb-3 leading-tight">{title}</h3>
-        <p className="text-slate-400 text-sm leading-relaxed">{body}</p>
+    <Reveal>
+      <div className="max-w-3xl mx-auto text-center mb-14 sm:mb-20">
+        <span className="text-xs text-cyan-400 tracking-[0.22em] uppercase font-semibold">{eyebrow}</span>
+        <h2 className="text-3xl sm:text-5xl font-bold mt-4 mb-5 leading-[1.2] tracking-tight">{title}</h2>
+        {description && <p className="text-slate-400 text-base sm:text-lg leading-relaxed">{description}</p>}
       </div>
     </Reveal>
   );
 }
 
-// ── Reward card ──────────────────────────────────────────────────────
-function RewardCard({ gradient, tag, title, body, delay }: { gradient: string; tag: string; title: string; body: string; delay: number }) {
+function ValueCard({ icon, title, body, delay }: { icon: React.ReactNode; title: string; body: string; delay: number }) {
   return (
     <Reveal delay={delay}>
-      <div className="relative overflow-hidden bg-white/[0.03] border border-white/[0.07] rounded-2xl p-8 backdrop-blur-sm hover:border-white/[0.12] transition-all duration-300">
-        <div className={`absolute inset-0 opacity-[0.04] ${gradient}`} />
-        <span className="relative text-[10px] font-bold tracking-widest uppercase text-slate-500 mb-4 block">{tag}</span>
-        <h3 className="relative text-white font-bold text-xl mb-3 leading-tight">{title}</h3>
-        <p className="relative text-slate-400 text-sm leading-relaxed">{body}</p>
+      <div className="group h-full relative bg-white/[0.03] hover:bg-white/[0.055] border border-white/[0.07] hover:border-cyan-400/25 rounded-2xl p-7 sm:p-8 transition-all duration-300 backdrop-blur-sm">
+        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500/15 to-purple-500/15 border border-white/[0.08] flex items-center justify-center mb-6 group-hover:from-cyan-500/25 group-hover:to-purple-500/25 transition-all duration-300">
+          {icon}
+        </div>
+        <h3 className="text-white font-semibold text-lg mb-3 leading-tight">{title}</h3>
+        <p className="text-slate-400 text-sm leading-7">{body}</p>
       </div>
     </Reveal>
+  );
+}
+
+function Divider() {
+  return (
+    <div className="max-w-5xl mx-auto px-6">
+      <div className="h-px bg-gradient-to-r from-transparent via-white/[0.07] to-transparent" />
+    </div>
   );
 }
 
@@ -517,191 +602,379 @@ export function PremiumLanding() {
         }
       `}</style>
 
-      {/* ── Fixed Header ── */}
       <header className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${scrolled ? 'bg-[#0A0A0A]/90 backdrop-blur-xl border-b border-white/[0.06]' : ''}`}>
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-5 sm:px-6 h-16 flex items-center justify-between">
           <Logo theme="dark" size="md" />
           <button onClick={() => setShowLogin(true)}
-            className="text-sm text-slate-400 hover:text-white border border-white/10 hover:border-white/25 px-4 py-1.5 rounded-full transition-all duration-200">
+            className="text-xs sm:text-sm text-slate-400 hover:text-white border border-white/10 hover:border-white/25 px-3 sm:px-4 py-1.5 rounded-full transition-all duration-200">
             기존 수강생 로그인
           </button>
         </div>
       </header>
 
-      {/* ── Hero Section ── */}
-      <section className="relative min-h-[100dvh] flex flex-col items-center justify-center px-6 pt-16 pb-16">
-        {/* Canvas background */}
+      {/* 1. Hero */}
+      <section className="relative min-h-[100dvh] flex flex-col items-center justify-center px-5 sm:px-6 pt-24 pb-20">
         <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" style={{ pointerEvents: 'none' }} />
-
-        {/* Radial glows */}
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] rounded-full"
-            style={{ background: 'radial-gradient(ellipse, rgba(34,211,238,0.06) 0%, transparent 70%)' }} />
-          <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[300px] rounded-full"
-            style={{ background: 'radial-gradient(ellipse, rgba(168,85,247,0.05) 0%, transparent 70%)' }} />
+          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[min(700px,90vw)] h-[420px] rounded-full"
+            style={{ background: 'radial-gradient(ellipse, rgba(34,211,238,0.07) 0%, transparent 70%)' }} />
+          <div className="absolute bottom-1/4 right-0 sm:right-1/4 w-[400px] h-[300px] rounded-full"
+            style={{ background: 'radial-gradient(ellipse, rgba(168,85,247,0.06) 0%, transparent 70%)' }} />
         </div>
 
-        <div className="relative z-10 text-center max-w-4xl mx-auto">
-          <div className="inline-flex items-center gap-2 text-xs text-slate-500 border border-white/[0.08] bg-white/[0.03] backdrop-blur-sm rounded-full px-4 py-1.5 mb-7 sm:mb-10 tracking-widest uppercase">
+        <div className="relative z-10 text-center max-w-5xl mx-auto">
+          <div className="inline-flex items-center gap-2 text-[11px] sm:text-xs text-slate-400 border border-white/[0.08] bg-white/[0.03] backdrop-blur-sm rounded-full px-4 py-2 mb-7 sm:mb-10 tracking-wider">
             <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-            MIDI LAB · 1:1 프리미엄 음악 레슨
+            홍대입구 대면 · Discord 온라인 1:1 미디·작곡 레슨
           </div>
 
-          <h1 className="text-4xl sm:text-6xl md:text-7xl font-bold leading-[1.1] tracking-tight mb-6 sm:mb-8">
-            음악은 기계적으로<br />
-            배우는 것이 아니라,<br />
-            <span className="gradient-text">가지고 노는 것</span>이다.
+          <h1 className="text-[2.35rem] sm:text-6xl md:text-7xl font-bold leading-[1.12] tracking-[-0.04em] mb-7 sm:mb-8">
+            원하는 음악이 있다면,<br />
+            가장 빠르게 이해하고<br />
+            <span className="gradient-text">직접 만들 수 있게</span> 가르칩니다.
           </h1>
 
-          <p className="text-slate-400 text-base sm:text-xl max-w-xl mx-auto mb-10 sm:mb-12 leading-relaxed">
-            당신의 레퍼런스 곡 한 장이 교재입니다.<br />
-            MIDI LAB의 1:1 밀착 레슨으로 지금 바로 시작하세요.
+          <p className="text-slate-400 text-base sm:text-xl max-w-2xl mx-auto mb-10 sm:mb-12 leading-relaxed">
+            <span className="block text-slate-200 mb-4">FL Studio · Ableton Live</span>
+            완전 초보부터 자작곡, 리믹스, 싱어송라이팅까지<br className="hidden sm:block" />
+            원하는 음악을 직접 만들 수 있도록 1:1로 진행합니다.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <button onClick={() => setShowForm(true)}
-              className="cta-btn px-8 py-4 rounded-2xl text-white font-bold text-base shadow-[0_0_32px_rgba(34,211,238,0.25)] hover:shadow-[0_0_48px_rgba(34,211,238,0.35)] transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]">
-              첫 테스트 레슨 신청하기
-            </button>
-           
-          </div>
+          <button onClick={() => setShowForm(true)}
+            className="cta-btn px-8 py-4 rounded-2xl text-white font-bold text-base shadow-[0_0_32px_rgba(34,211,238,0.25)] hover:shadow-[0_0_48px_rgba(34,211,238,0.35)] transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]">
+            무료 테스트 레슨 신청하기
+          </button>
         </div>
 
-{/* Scroll indicator (수정됨) */}
-<div className="absolute bottom-10 inset-x-0 flex justify-center pointer-events-none">
-  <div className="flex flex-col items-center gap-2 text-slate-600 animate-bounce pointer-events-auto">
-    <span className="text-xs tracking-widest uppercase">Scroll</span>
-    <ChevronDown size={16} />
-  </div>
-</div>
+        <div className="absolute bottom-8 inset-x-0 flex justify-center pointer-events-none">
+          <div className="flex flex-col items-center gap-2 text-slate-600 animate-bounce">
+            <span className="text-[10px] tracking-widest uppercase">Scroll</span>
+            <ChevronDown size={16} />
+          </div>
+        </div>
       </section>
 
-      {/* ── Value Section ── */}
-      <section className="py-36 px-6">
+      {/* 2. Work videos */}
+      <section className="py-24 sm:py-32 px-5 sm:px-6">
         <div className="max-w-5xl mx-auto">
-          <Reveal>
-            <div className="text-center mb-20">
-              <span className="text-xs text-cyan-400 tracking-widest uppercase font-semibold">Why MIDI LAB</span>
-              <h2 className="text-4xl sm:text-5xl font-bold mt-4 mb-5 leading-tight">
-                획일화된 교재가 아닌,<br /><span className="gradient-text">당신의 음악</span>으로 배웁니다
-              </h2>
-              <p className="text-slate-400 text-lg max-w-lg mx-auto leading-relaxed">
-                이미 들어온 음악이 있다면, 그게 바로 첫 번째 수업 자료입니다.
-              </p>
-            </div>
-          </Reveal>
+          <SectionHeading
+            eyebrow="Selected Works"
+            title={<>직접 만들고, 연주하고,<br /><span className="gradient-text">완성하는 프로듀서</span>에게 배웁니다</>}
+            description={<>프로그램 기능만 설명하는 수업이 아니라<br className="hidden sm:block" /> 실제 음악을 만드는 과정과 판단을 함께 익힙니다.</>}
+          />
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+            {WORK_VIDEOS.map((work, index) => (
+              <Reveal key={work.title} delay={index * 100}>
+                <div className="group relative aspect-[9/16] max-w-sm mx-auto sm:max-w-none overflow-hidden rounded-3xl border border-white/[0.08] bg-[#10131a] shadow-2xl">
+                  {work.videoUrl ? (
+                    <video className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
+                      src={work.videoUrl} poster={work.posterUrl || undefined} muted loop playsInline controls />
+                  ) : (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-[radial-gradient(circle_at_50%_35%,rgba(34,211,238,0.11),transparent_38%),linear-gradient(145deg,#131722,#090b10)]">
+                      <div className="w-14 h-14 rounded-full border border-white/15 bg-white/[0.06] backdrop-blur flex items-center justify-center text-white/80 transition-transform duration-300 group-hover:scale-110">
+                        <svg className="w-5 h-5 ml-0.5" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+                      </div>
+                      <span className="mt-4 text-[10px] uppercase tracking-[0.25em] text-slate-600">Video Coming Soon</span>
+                    </div>
+                  )}
+                  <div className={`absolute inset-0 bg-gradient-to-t ${work.accent} opacity-80 transition-opacity duration-300 group-hover:opacity-100 pointer-events-none`} />
+                  <div className="absolute inset-x-0 bottom-0 p-6 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none">
+                    <span className="text-[10px] text-cyan-300 tracking-[0.2em] uppercase">Work 0{index + 1}</span>
+                    <h3 className="text-xl font-semibold mt-2">{work.title}</h3>
+                  </div>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <Divider />
+
+      {/* 3. Lesson method and strengths */}
+      <section className="py-24 sm:py-32 px-5 sm:px-6">
+        <div className="max-w-5xl mx-auto">
+          <SectionHeading
+            eyebrow="Why MIDI LAB"
+            title={<>기능을 외우는 대신,<br /><span className="gradient-text">음악을 완성하는 방법</span>을 배웁니다</>}
+            description="목표와 현재 프로젝트를 기준으로 필요한 과정을 가장 이해하기 쉬운 순서로 연결합니다."
+          />
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             <ValueCard
               delay={0}
-              icon={<svg className="w-6 h-6 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.966 8.966 0 00-6 2.292m0-14.25v14.25" /></svg>}
-              title="교재 없는 커리큘럼"
-              body="좋아하는 곡 한 소절부터 시작합니다. 듣고, 뜯고, 만들어보는 과정에서 이론은 자연스럽게 따라옵니다."
+              icon={<svg className="w-6 h-6 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h10M4 18h7" /></svg>}
+              title="복잡한 내용을 구조로 정리합니다"
+              body="필요한 이론과 기능을 무작정 나열하지 않습니다. 지금 목표에 필요한 내용을 이해하기 쉬운 순서로 연결합니다."
             />
             <ValueCard
               delay={100}
-              icon={<svg className="w-6 h-6 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z" /></svg>}
-              title="1:1 밀착 지도"
-              body="다음 회차 레슨 전에 스스로 만들어 오는 과제가 주어집니다. 막히는 부분은 메시지로 언제든 물어볼 수 있습니다."
+              icon={<svg className="w-6 h-6 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 4.5l7.5 7.5-7.5 7.5M5.25 12h13.5" /></svg>}
+              title="막히는 원인을 바로 찾아냅니다"
+              body="소리가 왜 어색한지, 무엇을 먼저 고쳐야 하는지, 다음 단계로 어떻게 넘어갈지를 실제 프로젝트에서 함께 판단합니다."
             />
             <ValueCard
               delay={200}
-              icon={<svg className="w-6 h-6 text-cyan-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.348 14.651a3.75 3.75 0 010-5.303m5.304 0a3.75 3.75 0 010 5.303m-7.425 2.122a6.75 6.75 0 010-9.546m9.546 0a6.75 6.75 0 010 9.546M5.106 18.894c-3.808-3.808-3.808-9.98 0-13.789m13.788 0c3.808 3.808 3.808 9.981 0 13.789M12 12h.008v.008H12V12z" /></svg>}
-              title="실전 중심 제작"
-              body="이론보다 먼저 소리를 만들어봅니다. 첫 레슨부터 완성된 루프를 내보내는 경험을 설계합니다."
+              icon={<svg className="w-6 h-6 text-cyan-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 18V5l12-2v13M9 9l12-2M5 21a4 3 0 100-6 4 3 0 000 6zm12-2a4 3 0 100-6 4 3 0 000 6z" /></svg>}
+              title="학생이 원하는 결과물로 배웁니다"
+              body="정해진 예제만 따라 하지 않고, 좋아하는 곡과 만들고 싶은 음악을 중심으로 작곡·편곡·녹음·믹싱을 연결합니다."
             />
           </div>
         </div>
       </section>
 
-      {/* ── Divider ── */}
-      <div className="max-w-5xl mx-auto px-6">
-        <div className="h-px bg-gradient-to-r from-transparent via-white/[0.07] to-transparent" />
-      </div>
+      <Divider />
 
-      {/* ── System & Rewards Section ── */}
-      <section className="py-36 px-6">
+      {/* 4. Goal-based lessons */}
+      <section className="py-24 sm:py-32 px-5 sm:px-6">
         <div className="max-w-5xl mx-auto">
+          <SectionHeading
+            eyebrow="Lesson Paths"
+            title={<>목표가 다르면,<br /><span className="gradient-text">배우는 순서도 달라야 합니다</span></>}
+            description="정해진 진도를 반복하지 않고, 지금 만들고 싶은 결과에서 출발합니다."
+          />
+
+          <div className="space-y-4">
+            {GOAL_LESSONS.map((goal, index) => (
+              <Reveal key={goal.title} delay={index * 80}>
+                <div className="group grid sm:grid-cols-[90px_1fr_1.5fr] gap-3 sm:gap-8 items-start sm:items-center bg-white/[0.025] hover:bg-white/[0.045] border border-white/[0.07] hover:border-purple-400/20 rounded-2xl px-6 py-7 sm:p-8 transition-all duration-300">
+                  <span className="text-xs text-cyan-400/70 tracking-[0.2em]">{goal.number}</span>
+                  <h3 className="text-xl font-semibold">{goal.title}</h3>
+                  <p className="text-slate-400 text-sm leading-7">{goal.body}</p>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <Divider />
+
+      {/* 5. Student platform */}
+      <section className="py-24 sm:py-32 px-5 sm:px-6">
+        <div className="max-w-5xl mx-auto">
+          <SectionHeading
+            eyebrow="Student Platform"
+            title={<>수업이 끝나도<br /><span className="gradient-text">작업은 계속됩니다</span></>}
+            description={<>배우고 끝나는 구조가 아니라,<br className="hidden sm:block" /> 연습하고 도전하고 보상받는 과정까지 설계했습니다.</>}
+          />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            {PLATFORM_FEATURES.map((feature, index) => (
+              <Reveal key={feature.title} delay={(index % 2) * 100}>
+                <div className="group overflow-hidden h-full bg-white/[0.03] border border-white/[0.07] hover:border-cyan-400/20 rounded-2xl transition-all duration-300">
+                  <div className="relative aspect-[16/9] overflow-hidden bg-[#10131a]">
+                    {feature.imageSrc ? (
+                      <img src={feature.imageSrc} alt={`${feature.title} 화면`} className="w-full h-full object-cover object-top transition-transform duration-700 group-hover:scale-[1.02]" />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center bg-[radial-gradient(circle_at_50%_25%,rgba(168,85,247,0.1),transparent_45%),linear-gradient(145deg,#121620,#0b0d12)]">
+                        <div className="w-[72%] h-[62%] rounded-xl border border-white/[0.08] bg-white/[0.025] p-4 shadow-2xl">
+                          <div className="w-1/3 h-2 rounded-full bg-white/10 mb-4" />
+                          <div className="grid grid-cols-3 gap-2 h-[calc(100%-24px)]">
+                            <div className="rounded-md bg-cyan-400/[0.07] border border-cyan-400/10" />
+                            <div className="col-span-2 rounded-md bg-white/[0.035] border border-white/[0.05]" />
+                          </div>
+                        </div>
+                        <span className="absolute bottom-4 text-[9px] uppercase tracking-[0.22em] text-slate-700">Image Placeholder</span>
+                      </div>
+                    )}
+                    <div className={`absolute inset-0 bg-gradient-to-t ${feature.imageSrc ? 'from-[#0d0f14]/60' : 'from-[#0d0f14]'} via-transparent to-transparent pointer-events-none`} />
+                  </div>
+                  <div className="p-6 sm:p-7">
+                    <span className="text-[10px] text-purple-400 tracking-[0.2em]">0{index + 1}</span>
+                    <h3 className="text-lg font-semibold mt-2 mb-2">{feature.title}</h3>
+                    <p className="text-slate-400 text-sm leading-6">{feature.description}</p>
+                  </div>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+
           <Reveal>
-            <div className="text-center mb-20">
-              <span className="text-xs text-purple-400 tracking-widest uppercase font-semibold">System &amp; Rewards</span>
-              <h2 className="text-4xl sm:text-5xl font-bold mt-4 mb-5 leading-tight">
-                과제를 달성하면<br /><span className="gradient-text">돌아옵니다</span>
-              </h2>
-              <p className="text-slate-400 text-lg max-w-lg mx-auto leading-relaxed">
-                연습은 의무가 아니라 보상으로 설계되어 있습니다.
+            <div className="mt-8 rounded-2xl border border-cyan-400/20 bg-gradient-to-r from-cyan-500/[0.07] via-white/[0.025] to-purple-500/[0.07] px-6 py-5 sm:px-8 sm:py-6 text-center">
+              <span className="text-xs text-cyan-300 tracking-[0.16em] uppercase font-semibold">포인트 랭킹</span>
+              <p className="mt-3 text-sm sm:text-base text-slate-200 leading-relaxed">
+                챌린지와 배틀 등으로 획득한<br />
+                누적 포인트를 기준으로<br className="sm:hidden" /> 매달 1위에게 상금을 지급합니다.
               </p>
+              <p className="mt-2 text-xs text-slate-500">(수강생 5명 이상부터 운영)</p>
             </div>
           </Reveal>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            <RewardCard
-              delay={0}
-              gradient="bg-gradient-to-br from-cyan-500 to-blue-600"
-              tag="페이백 시스템"
-              title="과제 달성 시 할인 적립"
-              body="레슨 후 주어지는 과제를 완성하면 다음 결제 시 할인 포인트가 쌓입니다. 꾸준히 하면 레슨비가 줄어듭니다."
-            />
-            <RewardCard
-              delay={100}
-              gradient="bg-gradient-to-br from-purple-500 to-pink-600"
-              tag="리그 랭킹"
-              title="월별 상위 수강생 보상"
-              body="매월 포인트 상위 수강생에게 추가 할인 및 특별 혜택이 주어집니다. 경쟁이 아닌, 동기부여를 위한 리그입니다."
-            />
-            <RewardCard
-              delay={200}
-              gradient="bg-gradient-to-br from-amber-500 to-orange-600"
-              tag="티켓 제도"
-              title="내 스케줄에 맞는 예약"
-              body="횟수제 티켓으로 운영됩니다. 사이트에서 원하는 날짜와 시간에 직접 예약하고, 취소는 3일 전까지 가능합니다."
-            />
-          </div>
+          <Reveal>
+            <p className="text-center text-slate-300 text-base sm:text-lg leading-relaxed mt-12 sm:mt-16">
+              보여주기 위한 기능이 아니라,<br />
+              <span className="text-white font-medium">수업 밖에서도 꾸준히 음악을 만들 수 있도록</span> 직접 설계했습니다.
+            </p>
+          </Reveal>
         </div>
       </section>
 
-      {/* ── Divider ── */}
-      <div className="max-w-5xl mx-auto px-6">
-        <div className="h-px bg-gradient-to-r from-transparent via-white/[0.07] to-transparent" />
-      </div>
+      <Divider />
 
-      {/* ── Final CTA Section ── */}
-      <section className="py-40 px-6 relative overflow-hidden">
-        {/* Background glow */}
+      {/* 6. Instructor */}
+      <section className="py-24 sm:py-32 px-5 sm:px-6">
+        <div className="max-w-5xl mx-auto">
+          <Reveal>
+            <div className="relative overflow-hidden grid md:grid-cols-[0.8fr_1.2fr] gap-10 md:gap-16 items-center bg-white/[0.025] border border-white/[0.07] rounded-3xl p-7 sm:p-12">
+              <div className="absolute -top-40 -left-32 w-80 h-80 rounded-full bg-cyan-500/[0.05] blur-3xl pointer-events-none" />
+              <div className="relative aspect-square max-w-xs w-full mx-auto overflow-hidden rounded-2xl border border-white/[0.08] bg-[radial-gradient(circle_at_50%_35%,rgba(34,211,238,0.1),transparent_42%),linear-gradient(145deg,#141821,#0b0d12)]">
+                <img
+                  src="/landing/profile.png"
+                  alt="프로듀서 JVNE 작업 모습"
+                  className="w-full h-full object-cover object-[50%_50%]"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent pointer-events-none" />
+              </div>
+              <div className="relative">
+                <span className="text-xs text-cyan-400 tracking-[0.22em] uppercase font-semibold">Instructor</span>
+                <p className="text-sm text-slate-400 mt-4">프로듀서 · 싱어송라이터</p>
+                <p className="gradient-text inline-block text-2xl font-bold mt-1">JVNE</p>
+                <h2 className="text-3xl sm:text-4xl font-bold mt-7 mb-6 leading-tight">
+                  학생이 원하는 음악을<br />
+                  가장 이해하기 쉬운 구조로 바꿉니다
+                </h2>
+                <div className="space-y-5 text-slate-400 text-base leading-8">
+                  <p>작곡과 편곡부터 기타, 피아노, 베이스, 드럼, 보컬, 녹음, 믹싱과 마스터링까지 직접 작업합니다.</p>
+                  <p>학생이 만들고 싶은 결과를 먼저 파악하고, 현재 수준에 필요한 내용만 이해하기 쉬운 순서로 연결해 가르칩니다.</p>
+                </div>
+              </div>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+      <Divider />
+
+      {/* 7. Pricing and lesson format */}
+      <section className="py-24 sm:py-32 px-5 sm:px-6">
+        <div className="max-w-5xl mx-auto">
+          <SectionHeading
+            eyebrow="Pricing"
+            title={<>필요한 속도에 맞춰<br /><span className="gradient-text">선택할 수 있습니다</span></>}
+            description="모든 수업은 학생의 프로젝트를 중심으로 진행하는 1:1 레슨입니다."
+          />
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 max-w-4xl mx-auto">
+            {LESSON_PLANS.map((plan, index) => (
+              <Reveal key={plan.name} delay={index * 100}>
+                <div className={`relative h-full rounded-2xl p-7 sm:p-8 border transition-all duration-300 ${plan.featured ? 'bg-gradient-to-b from-cyan-500/[0.09] to-purple-500/[0.05] border-cyan-400/25 shadow-[0_0_50px_rgba(34,211,238,0.06)]' : 'bg-white/[0.025] border-white/[0.07] hover:border-white/[0.14]'}`}>
+                  <span className="text-xs text-cyan-300/80 tracking-[0.14em] uppercase">{plan.name}</span>
+                  <span className="absolute top-6 right-6 rounded-full border border-cyan-400/20 bg-cyan-400/[0.07] px-3 py-1 text-[10px] font-medium text-cyan-300">
+                    첫 등록 혜택
+                  </span>
+                  <p className="mt-6 text-sm text-slate-600 line-through decoration-slate-600">{formatWon(plan.originalPrice)}</p>
+                  <p className="mt-1 mb-3 text-3xl font-bold tracking-tight text-cyan-300">첫 달 {formatWon(plan.price)}</p>
+                  <p className="text-slate-400 text-sm">{plan.detail}</p>
+                  <div className="h-px bg-white/[0.07] my-6" />
+                  <p className="text-slate-400 text-sm leading-7">{plan.description}</p>
+                  <p className="mt-2 text-slate-500 text-sm leading-7">{plan.normalPriceNote}</p>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+
+          <Reveal>
+            <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-8 text-center text-sm text-slate-400">
+              <span className="inline-flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />홍대입구역 사거리 인근 대면</span>
+              <span className="hidden sm:block w-px h-4 bg-white/10" />
+              <span className="inline-flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-purple-400" />Discord 온라인 수업</span>
+            </div>
+            <div className="max-w-2xl mx-auto mt-6 rounded-xl border border-white/[0.07] bg-white/[0.02] px-5 py-4 text-center text-xs sm:text-sm text-slate-500 leading-6">
+              <p>무료 테스트 레슨 후 등록 여부를 결정할 수 있습니다.</p>
+              <p className="mt-2 text-slate-400">첫 등록 혜택</p>
+              <p>
+                월 4회 첫 달 <span className="text-cyan-300/80">{formatWon(LESSON_PLANS[0].price)}</span>
+                <span className="mx-2 text-slate-700">·</span>
+                월 8회 첫 달 <span className="text-cyan-300/80">{formatWon(LESSON_PLANS[1].price)}</span>
+              </p>
+              <p className="mt-1">다음 달부터 각 과정의 정상가가 적용됩니다.</p>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+      <Divider />
+
+      {/* 8. Completion and release support */}
+      <section className="py-24 sm:py-32 px-5 sm:px-6">
+        <div className="max-w-5xl mx-auto">
+          <SectionHeading
+            eyebrow="Optional Production Support"
+            title={<>레슨 이후,<br /><span className="gradient-text">곡을 세상에 내보내는 과정까지</span></>}
+            description={<>자작곡이 완성 단계에 도달하면, 필요에 따라 별도 유료 옵션으로<br className="hidden md:block" /> 보컬 녹음, 믹싱·마스터링과 음원 발매까지 함께 진행할 수 있습니다.</>}
+          />
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {[
+              {
+                title: '보컬 녹음',
+                lines: ['완성된 곡에 필요한 보컬 녹음과', '트랙 정리를 함께 진행합니다.'],
+              },
+              {
+                title: '믹싱 · 마스터링',
+                lines: ['각 트랙의 균형을 정리하고', '완성된 음원으로 들릴 수 있게 다듬습니다.'],
+              },
+              {
+                title: '음원 발매',
+                lines: ['국내외 음원 플랫폼 유통과', '발매에 필요한 과정을 함께 준비합니다.'],
+              },
+            ].map((option, index) => (
+              <Reveal key={option.title} delay={index * 100}>
+                <div className="h-full rounded-2xl border border-dashed border-white/[0.12] bg-white/[0.018] p-7 transition-all duration-300 hover:bg-white/[0.03] hover:border-purple-400/20">
+                  <span className="text-[9px] text-slate-600 tracking-[0.18em]">별도 유료 지원</span>
+                  <h3 className="text-lg font-semibold mt-4 mb-5">{option.title}</h3>
+                  <div className="space-y-2 min-h-[68px]">
+                    {option.lines.map(line => <p key={line} className="text-slate-400 text-sm leading-6">{line}</p>)}
+                  </div>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+
+          <Reveal>
+            <p className="mt-8 text-center text-xs sm:text-sm text-slate-600">
+              곡의 상태와 필요한 작업 범위에 따라 비용과 진행 방식이 달라집니다.
+            </p>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* 9. Final CTA */}
+      <section className="py-28 sm:py-40 px-5 sm:px-6 relative overflow-hidden">
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] rounded-full"
-            style={{ background: 'radial-gradient(ellipse, rgba(34,211,238,0.04) 0%, transparent 70%)' }} />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[min(800px,110vw)] h-[420px] rounded-full"
+            style={{ background: 'radial-gradient(ellipse, rgba(34,211,238,0.06) 0%, rgba(168,85,247,0.025) 40%, transparent 70%)' }} />
         </div>
 
         <div className="max-w-3xl mx-auto text-center relative z-10">
           <Reveal>
-            <span className="text-xs text-slate-500 tracking-widest uppercase font-semibold">Get Started</span>
-            <h2 className="text-4xl sm:text-5xl md:text-6xl font-bold mt-6 mb-8 leading-tight">
+            <span className="text-xs text-slate-500 tracking-[0.22em] uppercase font-semibold">Free Test Lesson</span>
+            <h2 className="text-4xl sm:text-5xl md:text-6xl font-bold mt-6 mb-8 leading-tight tracking-tight">
               백 번의 설명보다<br />
               <span className="gradient-text">한 번의 경험</span>이 확실합니다
             </h2>
-            <p className="text-slate-400 text-xl mb-14 leading-relaxed">
-              무료 테스트 레슨으로 직접 느껴보세요.<br />
-              부담 없이 신청하고, 첫 레슨에서 판단하시면 됩니다.
+            <p className="text-slate-400 text-base sm:text-xl mb-12 leading-relaxed">
+              무료 테스트 레슨으로 수업 방식과 진행 방향을 직접 확인해보세요.<br />
+              수업 후 정규 등록 여부를 결정하시면 됩니다.
             </p>
             <button onClick={() => setShowForm(true)}
-              className="cta-btn inline-flex items-center gap-3 px-10 py-5 rounded-2xl text-white font-bold text-lg shadow-[0_0_40px_rgba(34,211,238,0.2)] hover:shadow-[0_0_60px_rgba(34,211,238,0.35)] transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]">
-              지금 바로 신청하기
+              className="cta-btn inline-flex items-center gap-3 px-8 sm:px-10 py-4 sm:py-5 rounded-2xl text-white font-bold text-base sm:text-lg shadow-[0_0_40px_rgba(34,211,238,0.2)] hover:shadow-[0_0_60px_rgba(34,211,238,0.35)] transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]">
+              무료 테스트 레슨 신청하기
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
             </button>
           </Reveal>
         </div>
       </section>
 
-{/* ── Footer ── */}
-<footer className="border-t border-white/[0.05] py-6 px-6"> {/* 전체 상하 패딩 축소 */}
-  <div className="max-w-5xl mx-auto flex flex-col items-center justify-center gap-1"> {/* 요소 간격 축소 */}
-    <Logo theme="dark" size="sm" />
-    <p className="text-slate-600 text-xs text-center">© 2025 MIDI LAB. All rights reserved.</p>
-  </div>
-</footer>
+      <footer className="border-t border-white/[0.05] py-6 px-6">
+        <div className="max-w-5xl mx-auto flex flex-col items-center justify-center gap-1">
+          <Logo theme="dark" size="sm" />
+          <p className="text-slate-600 text-xs text-center">© {new Date().getFullYear()} MIDI LAB. All rights reserved.</p>
+        </div>
+      </footer>
 
-      {/* ── Overlays ── */}
       {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
       {showForm && <ApplicationForm onClose={() => setShowForm(false)} />}
     </div>
