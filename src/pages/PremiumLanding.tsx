@@ -520,12 +520,12 @@ const WORK_VIDEOS = [
 const PLATFORM_FEATURES = [
   {
     title: '언제든 다시 보는 기초 강의',
-    description: '수업에서 놓친 개념을 짧은 영상으로 다시 확인하고 필요한 만큼 반복합니다.',
+    description: '수업에서 놓친 개념을 짧은 영상으로 다시 확인합니다.',
     imageSrc: '/landing/lecture.png',
   },
   {
-    title: '매주 과제로 레슨비 할인',
-    description: '매주 과제 완료 시 다음 결제에서 20,000원 할인됩니다. 월 4개 완료 시 최대 80,000원 할인됩니다.',
+    title: '과제수행 시 수강료 할인',
+    description: '매주 진행되는 과제 완료 시 다음 결제에서 20,000원씩, 최대 80,000원까지 할인됩니다.',
     imageSrc: '/landing/reward.png',
   },
   {
@@ -542,14 +542,14 @@ const PLATFORM_FEATURES = [
 
 const WHY_ITEMS = [
   {
-    icon: <svg className="w-6 h-6 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h10M4 18h7" /></svg>,
-    title: '필요한 것부터 순서대로 배웁니다',
-    body: '이론과 기능을 무작정 나열하지 않고, 지금 만들고 있는 곡에 필요한 내용부터 연결합니다.',
+    icon: <svg className="w-6 h-6 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 4.5l7.5 7.5-7.5 7.5M5.25 12h13.5" /></svg>,
+    title: '배운 내용이 구조로 남습니다',
+    body: '가장 실용적인 핵심을 하나의 구조로 정리해 세부 내용을 잊어도 금방 다시 이어갈 수 있습니다.',
   },
   {
-    icon: <svg className="w-6 h-6 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 4.5l7.5 7.5-7.5 7.5M5.25 12h13.5" /></svg>,
-    title: '막힌 지점을 바로 해결합니다',
-    body: '소리가 왜 어색한지 함께 듣고, 무엇을 먼저 고쳐야 하는지 실제 프로젝트에서 판단합니다.',
+    icon: <svg className="w-6 h-6 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h10M4 18h7" /></svg>,
+    title: '필요한 것부터 배웁니다',
+    body: '이론과 기능을 무작정 나열하지 않고, 지금 만들고 있는 곡에 필요한 내용부터 연결합니다.',
   },
   {
     icon: <svg className="w-6 h-6 text-cyan-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 18V5l12-2v13M9 9l12-2M5 21a4 3 0 100-6 4 3 0 000 6zm12-2a4 3 0 100-6 4 3 0 000 6z" /></svg>,
@@ -745,13 +745,14 @@ export function PremiumLanding() {
 
           <h1 className="max-w-[22rem] sm:max-w-none mx-auto text-[1.8rem] sm:text-6xl md:text-7xl font-bold leading-[1.15] sm:leading-[1.12] tracking-[-0.04em] mb-7 sm:mb-8 break-keep sm:break-normal">
             원하는 음악을,<br className="hidden sm:block" /><br className="sm:hidden" />{' '}
-            <span className="gradient-text">혼자서도 직접 완성할 수 있게</span><br className="hidden sm:block" /><br className="sm:hidden" />{' '}
+            <span className="gradient-text max-[360px]:hidden">혼자서도 직접 완성할 수 있게</span>
+            <span className="gradient-text hidden max-[360px]:inline">혼자서도 직접<br />완성할 수 있게</span><br className="hidden sm:block" /><br className="sm:hidden" />{' '}
             가르쳐드립니다
           </h1>
 
           <p className="text-slate-400 text-base sm:text-xl max-w-2xl mx-auto mb-10 sm:mb-12 leading-relaxed break-keep sm:break-normal">
             <span className="block text-slate-200 mb-4">FL Studio · Ableton Live</span>
-            완전 초보부터 자작곡, 리믹스, 싱어송라이팅까지<br className="hidden sm:block" />{' '}
+            완전 초보부터 리믹스, 싱어송라이팅까지<br className="hidden sm:block" />{' '}
             원하는 음악을 직접 완성하는 1:1 레슨입니다.
           </p>
 
@@ -774,8 +775,16 @@ export function PremiumLanding() {
         <div className="max-w-5xl mx-auto">
           <SectionHeading
             eyebrow="Selected Works"
-            title={<>직접 만들고, 연주하고,<br className="hidden sm:block" />{' '}<span className="gradient-text">완성하는 프로듀서</span>에게 배웁니다</>}
-            description={<>프로그램 사용법만 설명하지 않습니다.<br className="hidden sm:block" />{' '}실제 음악을 만드는 과정과 판단을 함께 배웁니다.</>}
+            title={
+              <>
+                <span className="gradient-text">
+                  직접 연주하고 제작하는
+                </span>
+                <br />
+                프로듀서에게 배웁니다
+              </>
+            }
+            description="실제 음악을 만드는 과정과 판단을 함께 배웁니다."
           />
 
           <div ref={worksCarouselRef} onScroll={handleWorksCarouselScroll} className="flex overflow-x-auto overflow-y-hidden overscroll-x-contain touch-pan-x touch-pan-y snap-x snap-mandatory gap-4 -mx-5 px-5 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>div]:w-[84vw] [&>div]:max-w-[320px] [&>div]:shrink-0 [&>div]:snap-center sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-5 sm:overflow-visible sm:overscroll-auto sm:touch-auto sm:px-0 sm:pb-0 sm:snap-none sm:[&>div]:w-auto sm:[&>div]:max-w-none">
@@ -827,7 +836,15 @@ export function PremiumLanding() {
         <div className="max-w-5xl mx-auto">
           <SectionHeading
             eyebrow="Why MIDI LAB"
-            title={<>기능을 외우는 대신,<br className="hidden sm:block" />{' '}<span className="gradient-text">음악을 완성하는 방법</span>을 배웁니다</>}
+            title={
+              <>
+                원리를 이해하면,
+                <br />
+                <span className="gradient-text whitespace-nowrap">
+                  혼자서도 만들 수 있습니다
+                </span>
+              </>
+            }
             description="목표와 현재 프로젝트를 기준으로 필요한 과정을 가장 이해하기 쉬운 순서로 연결합니다."
           />
 
@@ -868,8 +885,22 @@ export function PremiumLanding() {
         <div className="max-w-5xl mx-auto">
           <SectionHeading
             eyebrow="Student Platform"
-            title={<>수업이 끝나도<br className="hidden sm:block" />{' '}<span className="gradient-text">작업은 계속됩니다</span></>}
-            description={<>배우고 끝나는 구조가 아니라,<br className="hidden sm:block" />{' '}연습하고 도전하고 보상받는 과정까지 설계했습니다.</>}
+            title={
+              <>
+                수업이 끝나도
+                <br />
+                <span className="gradient-text whitespace-nowrap">
+                  작업은 계속됩니다
+                </span>
+              </>
+            }
+            description={
+              <>
+                배우고 끝나는 구조가 아니라,
+                <br />
+                연습하고 도전하고 보상받는 과정까지 설계했습니다.
+              </>
+            }
           />
 
           <div className="grid grid-cols-2 gap-2.5 [&>div]:min-w-0 sm:grid-cols-2 sm:gap-5">
@@ -907,7 +938,8 @@ export function PremiumLanding() {
             <div className="mt-5 sm:mt-8 rounded-2xl border border-cyan-400/20 bg-gradient-to-r from-cyan-500/[0.07] via-white/[0.025] to-purple-500/[0.07] px-4 py-4 sm:px-8 sm:py-6 text-center">
               <span className="text-xs text-cyan-300 tracking-[0.16em] uppercase font-semibold">포인트 랭킹</span>
               <p className="mt-2 sm:mt-3 text-xs sm:text-base text-slate-200 leading-5 sm:leading-relaxed break-keep sm:break-normal">
-                수강생 5명 이상부터 누적 포인트 1위에게 매달 상금을 지급합니다.
+                수강생 5명 이상부터 누적 포인트 1위에게 매달{' '}
+                <span className="whitespace-nowrap">상금을 지급합니다.</span>
               </p>
             </div>
           </Reveal>
@@ -937,8 +969,9 @@ export function PremiumLanding() {
                   <p className="gradient-text inline-block text-xl sm:text-2xl font-bold mt-0.5 sm:mt-1">JVNE</p>
                 </div>
                 <h2 className="col-span-2 sm:col-span-1 text-[1.3rem] sm:text-4xl font-bold mt-4 sm:mt-7 mb-3 sm:mb-6 leading-snug sm:leading-tight break-keep sm:break-normal">
-                  여러 악기와 제작 전 과정을<br className="hidden sm:block" />{' '}
-                  직접 다루는 프로듀서가 가르쳐드립니다
+                  여러 악기와 제작 전 과정을<br className="hidden md:block" />{' '}
+                  직접 다루는 프로듀서가<br className="hidden md:block" />{' '}
+                  가르쳐드립니다
                 </h2>
                 <div className="col-span-2 sm:col-span-1 space-y-2 sm:space-y-5 text-slate-400 text-xs sm:text-base leading-5 sm:leading-8">
                   <p>기타, 피아노, 베이스, 드럼과 보컬을 직접 다루며 작곡·편곡부터 녹음, 믹싱, 마스터링까지 작업합니다.</p>
@@ -1077,7 +1110,8 @@ export function PremiumLanding() {
               <span className="gradient-text">직접 확인해보세요</span>
             </h2>
             <p className="text-slate-400 text-sm sm:text-xl mb-8 sm:mb-12 leading-6 sm:leading-relaxed">
-              수업 방식과 진행 방향을 먼저 경험한 뒤<br className="hidden sm:block" />{' '}
+              수업 방식과 진행 방향을 먼저 경험한 뒤
+              <br />
               정규 등록 여부를 결정하시면 됩니다.
             </p>
             <button ref={finalCtaRef} onClick={() => setShowForm(true)}
