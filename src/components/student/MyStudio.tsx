@@ -941,10 +941,16 @@ useEffect(() => {
       currentRoomIdRef.current = targetRoomId;
       setCurrentRoomId(targetRoomId);
 
-      sendToGodot('SWITCH_ROOM', { room_id: targetRoomId });
-      sendToGodot('LOAD_LAYOUT', {
+      postToGodot({
+        type: 'SWITCH_ROOM',
         room_id: targetRoomId,
-        room_layout: getFlatLayoutForRoom(targetLayoutsByRoom, targetRoomId),
+      });
+      postToGodot({
+        type: 'LOAD_LAYOUT',
+        room_id: targetRoomId,
+        room_layout: JSON.stringify(
+          getFlatLayoutForRoom(targetLayoutsByRoom, targetRoomId)
+        ),
         is_readonly: true,
       });
 
@@ -952,7 +958,7 @@ useEffect(() => {
     }
 
     sendToGodot(type, data);
-  }, [isSaving, profile.id, sendToGodot]);
+  }, [isSaving, postToGodot, profile.id, sendToGodot]);
 
   const handleIframeLoad = () => {
     clearGodotReadyTimeout();
